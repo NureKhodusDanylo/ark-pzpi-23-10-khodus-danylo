@@ -1,0 +1,33 @@
+﻿using Entities.Interfaces;
+
+namespace Entities.Models
+{
+    public class Order : IDbEntity
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public string Description { get; set; }
+        public double Weight { get; set; }
+        public decimal Price { get; set; }
+        public bool Paid { get; set; }
+        public OrderStatus Status { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? CompletedAt { get; set; }
+
+
+        public int SenderId { get; set; }
+        public virtual User Sender { get; set; }
+
+        public int RecipientId { get; set; }
+        public virtual User Recipient { get; set; }
+
+        public int? RobotId { get; set; }
+        public virtual Robot AssignedRobot { get; set; }
+
+        public int PickupNodeId { get; set; }
+        public virtual Node PickupNode { get; set; }
+
+        public int DropoffNodeId { get; set; }
+        public virtual Node DropoffNode { get; set; }
+    }
+}

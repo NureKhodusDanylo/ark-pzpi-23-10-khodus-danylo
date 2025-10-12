@@ -1,0 +1,6 @@
+@RobDeliveryAPI_HostAddress = http://localhost:5102
+
+GET {{RobDeliveryAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

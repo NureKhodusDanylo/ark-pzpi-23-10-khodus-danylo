@@ -1,0 +1,49 @@
+# Visual Studio specific
+.vs/
+obj/
+bin/
+*.user
+*.suo
+*.cache
+
+# Build output
+bin/
+obj/
+out/
+
+# ASP.NET specific
+appsettings.*.json
+!appsettings.json
+secrets.json
+
+# Logs
+logs/
+*.log
+
+# Packages
+packages/
+*.nupkg
+*.snupkg
+
+# Entity Framework
+Migrations/
+
+# User-specific files
+*.rsuser
+*.sln.ide
+
+# Rider
+.idea/
+*.sln.iml
+
+# Docker
+.dockerignore
+**/docker-compose.override.yml
+**/docker-compose.override.dev.yml
+
+# Node.js
+node_modules/
+
+# Other
+.DS_Store
+Thumbs.db
