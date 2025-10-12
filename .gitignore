@@ -25,9 +25,6 @@ packages/
 *.nupkg
 *.snupkg
 
-# Entity Framework
-Migrations/
-
 # User-specific files
 *.rsuser
 *.sln.ide
