@@ -1,0 +1,1 @@
+# arkpz-pzpi-23-10-khodus-danylo
