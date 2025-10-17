@@ -5,6 +5,7 @@ namespace Application.Abstractions.Interfaces
 {
     public interface IUserRepository
     {
+        Task<User?> GetByIdAsync(int userId);
         Task<User> GetByEmailAsync(string email);
         Task<User> GetByGoogleIdAsync(string googleId);
         Task<bool> ExistsByEmailAsync(string email);

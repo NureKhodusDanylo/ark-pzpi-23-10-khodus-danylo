@@ -2,15 +2,18 @@
 using Application.DTOs.UserDTOs;
 using Application.Services;
 using Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
+using IAuthService = Application.Abstractions.Interfaces.IAuthorizationService;
 
 namespace RobDeliveryAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class UserController(ITokenService _tokenService, IAuthorizationService _authorizationService) : ControllerBase
+    public class UserController(ITokenService _tokenService, IAuthService _authorizationService) : ControllerBase
     {
+        [AllowAnonymous]
         [HttpPost("register")]
         public async Task<IActionResult> Register(UserRegisterDTO registerData)
         {
@@ -23,6 +26,7 @@ namespace RobDeliveryAPI.Controllers
             return Ok(result.ToString());
         }
 
+        [AllowAnonymous]
         [HttpPost("login")]
         public async Task<IActionResult> Login(UserLoginDTO loginData)
         {
