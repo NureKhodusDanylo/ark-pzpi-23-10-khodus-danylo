@@ -44,3 +44,8 @@ node_modules/
 # Other
 .DS_Store
 Thumbs.db
+CLAUDE.md
+JWT_AUTHORIZATION_GUIDE.md
+nul
+ORDER_API_GUIDE.md
+.claude
