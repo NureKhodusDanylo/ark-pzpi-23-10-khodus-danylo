@@ -46,13 +46,9 @@ namespace Infrastructure.Repository
                 await _context.SaveChangesAsync();
             }
         }
-        public async Task<List<User>> GetAllAsync(int skip = 0, int take = 100)
+        public async Task<IEnumerable<User>> GetAllAsync()
         {
-            return await _context.Users
-                .OrderBy(u => u.Id)
-                .Skip(skip)
-                .Take(take)
-                .ToListAsync();
+            return await _context.Users.ToListAsync();
         }
         public async Task<bool> ExistsByEmailAsync(string email)
         {

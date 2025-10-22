@@ -39,17 +39,18 @@ namespace Application.Services
         {
             List<Claim> claims = new();
             int? UserId = null;
+            Entities.Models.User? user = null;
 
             if (loginData.Email != null)
             {
-                var userByEmail = await _userRepository.GetByEmailAsync(loginData.Email);
-                UserId = userByEmail?.Id;
+                user = await _userRepository.GetByEmailAsync(loginData.Email);
+                UserId = user?.Id;
             }
             else if (loginData.googleJwtToken != null)
             {
                 string Id = (await _googleTokenValidator.ValidateAsync(loginData.googleJwtToken)).Subject;
-                var userByGoogle = await _userRepository.GetByGoogleIdAsync(Id);
-                UserId = userByGoogle?.Id;
+                user = await _userRepository.GetByGoogleIdAsync(Id);
+                UserId = user?.Id;
             }
             else
                 return null;
@@ -61,6 +62,12 @@ namespace Application.Services
             }
 
             claims.Add(new Claim("Id", UserId.Value.ToString()));
+
+            // Add role claim if user has a role
+            if (user?.Role != null)
+            {
+                claims.Add(new Claim(ClaimTypes.Role, user.Role.Value.ToString()));
+            }
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secretKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);

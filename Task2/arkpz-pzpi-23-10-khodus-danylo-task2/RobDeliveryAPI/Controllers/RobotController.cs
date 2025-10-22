@@ -18,6 +18,7 @@ namespace RobDeliveryAPI.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> CreateRobot([FromBody] CreateRobotDTO robotDto)
         {
             try
@@ -71,6 +72,7 @@ namespace RobDeliveryAPI.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateRobot(int id, [FromBody] UpdateRobotDTO robotDto)
         {
             try
@@ -86,6 +88,7 @@ namespace RobDeliveryAPI.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteRobot(int id)
         {
             var result = await _robotService.DeleteRobotAsync(id);

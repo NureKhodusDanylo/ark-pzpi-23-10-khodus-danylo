@@ -42,6 +42,7 @@ namespace RobDeliveryAPI
             builder.Services.AddScoped<IRobotRepository, RobotRepository>();
             builder.Services.AddScoped<IPartnerService, PartnerService>();
             builder.Services.AddScoped<IPartnerRepository, PartnerRepository>();
+            builder.Services.AddScoped<IAdminService, AdminService>();
 
             // Configure JWT Authentication
             var jwtKey = config.Jwt.Key;

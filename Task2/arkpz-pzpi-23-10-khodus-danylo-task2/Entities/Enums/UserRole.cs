@@ -4,6 +4,7 @@
     {
         User,
         Partner,
+        Admin,
         Iot
     }
 }
