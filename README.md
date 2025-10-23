@@ -1,4 +1,4 @@
-#ark-pzpi-23-10-khodus-danylo
+# ark-pzpi-23-10-khodus-danylo
 
 ПЗПІ-23-10
 
