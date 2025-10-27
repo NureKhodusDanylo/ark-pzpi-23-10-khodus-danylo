@@ -1,6 +1,7 @@
 ﻿using Application.Abstractions.Interfaces;
 using Application.DTOs.UserDTOs;
 using Entities;
+using Entities.Enums;
 using Entities.Models;
 using Google.Apis.Auth;
 
@@ -31,7 +32,7 @@ namespace Application.Services
 
             if (!string.IsNullOrEmpty(registerData.Password))
             {
-                return await RegisterUserWithPasswordAsync(registerData.Name, registerData.Email, registerData.Password, registerData.PhoneNumber);
+                return await RegisterUserWithPasswordAsync(registerData.UserName, registerData.Email, registerData.Password, registerData.PhoneNumber);
             }
 
             return RegisterStatus.UnknownOathProvider;
@@ -60,12 +61,18 @@ namespace Application.Services
             }
 
             string passwordHash = _passwordHasher.Hash(password);
+
+            // First registered user becomes Admin
+            var allUsers = await _userRepository.GetAllAsync();
+            var isFirstUser = !allUsers.Any();
+
             var user = new User
             {
                 UserName = name,
                 Email = email,
                 PasswordHash = passwordHash,
-                PhoneNumber = phoneNumber
+                PhoneNumber = phoneNumber,
+                Role = isFirstUser ? UserRole.Admin : UserRole.User
             };
 
             await _userRepository.AddAsync(user);

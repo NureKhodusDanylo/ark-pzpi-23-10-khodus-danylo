@@ -4,7 +4,7 @@ namespace Application.DTOs.UserDTOs
 {
     public class UserLoginDTO
     {
-        [RegularExpression(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", ErrorMessage = "Invalid email format.")]
+        [EmailAddress]
         public string? Email { get; set; }
         public string? Password { get; set; }
         public string? googleJwtToken { get; set; }

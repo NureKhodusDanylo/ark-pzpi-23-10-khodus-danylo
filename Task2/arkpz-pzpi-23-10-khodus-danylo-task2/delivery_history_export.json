@@ -1,0 +1,23 @@
+[
+  {
+    "id": 1,
+    "name": "Package 2",
+    "description": "Books",
+    "weight": 1,
+    "price": 50.0,
+    "paid": false,
+    "status": "EnRoute",
+    "createdAt": "2025-10-23T15:23:55.0804783",
+    "completedAt": null,
+    "senderId": 2,
+    "senderName": "JohnDoe",
+    "recipientId": 3,
+    "recipientName": "JaneDoe",
+    "robotId": null,
+    "robotName": null,
+    "pickupNodeId": 2,
+    "pickupNodeName": "Station North",
+    "dropoffNodeId": 1,
+    "dropoffNodeName": "Hub Central"
+  }
+]

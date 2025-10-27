@@ -104,11 +104,29 @@ namespace Application.Services
             {
                 // For SQLite, create a backup by copying the database file
                 // In production, use proper backup strategies
-                string sourceDbPath = "Infrastructure/DB_Storage/RobDelivery.db";
 
-                if (!File.Exists(sourceDbPath))
+                // Try multiple possible paths
+                string[] possiblePaths = new[]
                 {
-                    throw new FileNotFoundException("Database file not found", sourceDbPath);
+                    Path.Combine(Directory.GetCurrentDirectory(), "Infrastructure", "DB_Storage", "RobDelivery.db"),
+                    Path.Combine(Directory.GetCurrentDirectory(), "..", "Infrastructure", "DB_Storage", "RobDelivery.db"),
+                    Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "Infrastructure", "DB_Storage", "RobDelivery.db")
+                };
+
+                string? sourceDbPath = null;
+                foreach (var path in possiblePaths)
+                {
+                    var fullPath = Path.GetFullPath(path);
+                    if (File.Exists(fullPath))
+                    {
+                        sourceDbPath = fullPath;
+                        break;
+                    }
+                }
+
+                if (sourceDbPath == null || !File.Exists(sourceDbPath))
+                {
+                    throw new FileNotFoundException($"Database file not found. Tried paths: {string.Join(", ", possiblePaths.Select(Path.GetFullPath))}");
                 }
 
                 string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
