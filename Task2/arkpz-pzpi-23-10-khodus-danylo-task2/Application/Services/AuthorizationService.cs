@@ -2,6 +2,7 @@
 using Application.DTOs.UserDTOs;
 using Entities;
 using Entities.Enums;
+using Entities.Interfaces;
 using Entities.Models;
 using Google.Apis.Auth;
 
@@ -12,27 +13,30 @@ namespace Application.Services
         private readonly IUserRepository _userRepository;
         private readonly IPasswordHasher _passwordHasher;
         private readonly IGoogleTokenValidator _googleTokenValidator;
+        private readonly INodeRepository _nodeRepository;
 
         public AuthorizationService(
             IUserRepository userRepository,
             IPasswordHasher passwordHasher,
-            IGoogleTokenValidator googleTokenValidator)
+            IGoogleTokenValidator googleTokenValidator,
+            INodeRepository nodeRepository)
         {
             _userRepository = userRepository;
             _passwordHasher = passwordHasher;
             _googleTokenValidator = googleTokenValidator;
+            _nodeRepository = nodeRepository;
         }
 
         public async Task<RegisterStatus> RegisterAsync(UserRegisterDTO registerData)
         {
             if (!string.IsNullOrEmpty(registerData.googleJwtToken))
             {
-                return await RegisterUserWithGoogleAsync(registerData.googleJwtToken);
+                return await RegisterUserWithGoogleAsync(registerData);
             }
 
             if (!string.IsNullOrEmpty(registerData.Password))
             {
-                return await RegisterUserWithPasswordAsync(registerData.UserName, registerData.Email, registerData.Password, registerData.PhoneNumber);
+                return await RegisterUserWithPasswordAsync(registerData);
             }
 
             return RegisterStatus.UnknownOathProvider;
@@ -53,14 +57,28 @@ namespace Application.Services
             return LoginStatus.UnknownOathProvider;
         }
 
-        private async Task<RegisterStatus> RegisterUserWithPasswordAsync(string name, string email, string password, string phoneNumber)
+        private async Task<RegisterStatus> RegisterUserWithPasswordAsync(UserRegisterDTO registerData)
         {
-            if (await _userRepository.ExistsByEmailAsync(email))
+            if (await _userRepository.ExistsByEmailAsync(registerData.Email))
             {
                 return RegisterStatus.EmailBusy;
             }
 
-            string passwordHash = _passwordHasher.Hash(password);
+            // Create personal node for user
+            var personalNode = new Node
+            {
+                Name = string.IsNullOrEmpty(registerData.Address)
+                    ? $"{registerData.UserName}'s Location"
+                    : registerData.Address,
+                Latitude = registerData.Latitude,
+                Longitude = registerData.Longitude,
+                Type = NodeType.CustomerDropoff
+            };
+
+            await _nodeRepository.AddAsync(personalNode);
+            await _nodeRepository.SaveChangesAsync();
+
+            string passwordHash = _passwordHasher.Hash(registerData.Password);
 
             // First registered user becomes Admin
             var allUsers = await _userRepository.GetAllAsync();
@@ -68,32 +86,53 @@ namespace Application.Services
 
             var user = new User
             {
-                UserName = name,
-                Email = email,
+                UserName = registerData.UserName,
+                Email = registerData.Email,
                 PasswordHash = passwordHash,
-                PhoneNumber = phoneNumber,
-                Role = isFirstUser ? UserRole.Admin : UserRole.User
+                PhoneNumber = registerData.PhoneNumber,
+                Role = isFirstUser ? UserRole.Admin : UserRole.User,
+                PersonalNodeId = personalNode.Id
             };
 
             await _userRepository.AddAsync(user);
             return RegisterStatus.Success;
         }
 
-        private async Task<RegisterStatus> RegisterUserWithGoogleAsync(string googleJwtToken)
+        private async Task<RegisterStatus> RegisterUserWithGoogleAsync(UserRegisterDTO registerData)
         {
             try
             {
-                var payload = await _googleTokenValidator.ValidateAsync(googleJwtToken);
+                var payload = await _googleTokenValidator.ValidateAsync(registerData.googleJwtToken);
                 if (await _userRepository.GetByGoogleIdAsync(payload.Subject) != null)
                 {
                     return RegisterStatus.EmailBusy;
                 }
 
+                // Create personal node for user
+                var personalNode = new Node
+                {
+                    Name = string.IsNullOrEmpty(registerData.Address)
+                        ? $"{payload.Name}'s Location"
+                        : registerData.Address,
+                    Latitude = registerData.Latitude,
+                    Longitude = registerData.Longitude,
+                    Type = NodeType.CustomerDropoff
+                };
+
+                await _nodeRepository.AddAsync(personalNode);
+                await _nodeRepository.SaveChangesAsync();
+
+                // First registered user becomes Admin
+                var allUsers = await _userRepository.GetAllAsync();
+                var isFirstUser = !allUsers.Any();
+
                 var user = new User
                 {
                     UserName = payload.Name,
                     Email = payload.Email,
-                    GoogleId = payload.Subject
+                    GoogleId = payload.Subject,
+                    Role = isFirstUser ? UserRole.Admin : UserRole.User,
+                    PersonalNodeId = personalNode.Id
                 };
 
                 await _userRepository.AddAsync(user);

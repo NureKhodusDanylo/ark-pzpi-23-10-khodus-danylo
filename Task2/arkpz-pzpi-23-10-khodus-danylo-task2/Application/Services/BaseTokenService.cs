@@ -2,6 +2,7 @@
 using Application.DTOs.UserDTOs;
 using Entities;
 using Entities.Config;
+using Entities.Interfaces;
 using Infrastructure.Repository;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -21,9 +22,10 @@ namespace Application.Services
         private readonly int _tokenExpiresHours;
         private readonly IUserRepository _userRepository;
         private readonly IGoogleTokenValidator _googleTokenValidator;
+        private readonly IRobotRepository _robotRepository;
         //private readonly Config _config;
 
-        public BaseTokenService(Config config, IUserRepository userRepository, IGoogleTokenValidator googleTokenValidator)
+        public BaseTokenService(Config config, IUserRepository userRepository, IGoogleTokenValidator googleTokenValidator, IRobotRepository robotRepository)
         {
             //_config = config;
             _secretKey = config.Jwt.Key;
@@ -32,6 +34,7 @@ namespace Application.Services
             _tokenExpiresHours = config.Jwt.TokenExpiresHours;
             _userRepository = userRepository;
             _googleTokenValidator = googleTokenValidator;
+            _robotRepository = robotRepository;
         }
 
 
@@ -107,6 +110,37 @@ namespace Application.Services
             }
 
             return userId;
+        }
+
+        public async Task<string?> GenerateRobotToken(int robotId)
+        {
+            var robot = await _robotRepository.GetByIdAsync(robotId);
+
+            if (robot == null)
+            {
+                throw new UnauthorizedAccessException("Robot not found");
+            }
+
+            List<Claim> claims = new()
+            {
+                new Claim("Id", robotId.ToString()),
+                new Claim("RobotId", robotId.ToString()),
+                new Claim(ClaimTypes.Role, "Iot"),
+                new Claim("Type", "Robot")
+            };
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secretKey));
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var token = new JwtSecurityToken(
+                issuer: _issuer,
+                audience: _audience,
+                claims: claims,
+                expires: DateTime.UtcNow.AddHours(_tokenExpiresHours * 24), // Longer expiration for IoT devices (24 days)
+                signingCredentials: creds
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
     }

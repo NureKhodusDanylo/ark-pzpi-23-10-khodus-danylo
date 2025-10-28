@@ -10,5 +10,6 @@ namespace Application.Abstractions.Interfaces
     public interface ITokenService
     {
         Task<string?> GenerateToken(UserLoginDTO loginData);
+        Task<string?> GenerateRobotToken(int robotId);
     }
 }

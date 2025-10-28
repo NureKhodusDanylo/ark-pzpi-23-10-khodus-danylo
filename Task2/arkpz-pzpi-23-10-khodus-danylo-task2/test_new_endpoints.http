@@ -1,0 +1,220 @@
+@baseUrl = http://localhost:5102/api
+@userToken =
+@robotToken =
+@adminToken =
+
+### ========== USER AUTHENTICATION (moved to AuthController) ==========
+
+### 1. Register User
+POST {{baseUrl}}/Auth/register
+Content-Type: application/json
+
+{
+  "userName": "Test User",
+  "email": "testuser@example.com",
+  "password": "password123",
+  "phoneNumber": "+380123456789"
+}
+
+### 2. Login User
+POST {{baseUrl}}/Auth/login
+Content-Type: application/json
+
+{
+  "email": "testuser@example.com",
+  "password": "password123"
+}
+
+### 3. Register Admin
+POST {{baseUrl}}/Auth/register
+Content-Type: application/json
+
+{
+  "userName": "Admin User",
+  "email": "admin@example.com",
+  "password": "admin123",
+  "phoneNumber": "+380987654321"
+}
+
+### ========== USER PROFILE ENDPOINTS ==========
+
+### 4. Get My Profile (requires auth token)
+GET {{baseUrl}}/User/profile
+Authorization: Bearer {{userToken}}
+
+### 5. Get User By ID (Admin only)
+GET {{baseUrl}}/User/1
+Authorization: Bearer {{adminToken}}
+
+### ========== ROBOT AUTHENTICATION (IoT Devices) ==========
+
+### 6. Register Robot (IoT Device)
+POST {{baseUrl}}/Auth/robot/register
+Content-Type: application/json
+
+{
+  "name": "Delivery Robot #1",
+  "model": "DR-2024-A",
+  "type": "Ground",
+  "serialNumber": "ROB-001-2024",
+  "accessKey": "secret-robot-key-123"
+}
+
+### 7. Register Another Robot (Aerial/Drone)
+POST {{baseUrl}}/Auth/robot/register
+Content-Type: application/json
+
+{
+  "name": "Delivery Drone #1",
+  "model": "DD-2024-X",
+  "type": "Aerial",
+  "serialNumber": "DRN-001-2024",
+  "accessKey": "secret-drone-key-456"
+}
+
+### 8. Login Robot (using SerialNumber)
+POST {{baseUrl}}/Auth/robot/login
+Content-Type: application/json
+
+{
+  "serialNumber": "ROB-001-2024",
+  "accessKey": "secret-robot-key-123"
+}
+
+### ========== ROBOT STATUS UPDATE (IoT Endpoint) ==========
+
+### 9. Robot Update Status - Idle at Node
+POST {{baseUrl}}/Robot/status
+Authorization: Bearer {{robotToken}}
+Content-Type: application/json
+
+{
+  "status": "Idle",
+  "batteryLevel": 95.5,
+  "currentNodeId": 1,
+  "currentLatitude": null,
+  "currentLongitude": null,
+  "targetNodeId": null
+}
+
+### 10. Robot Update Status - Delivering (in transit with GPS coordinates)
+POST {{baseUrl}}/Robot/status
+Authorization: Bearer {{robotToken}}
+Content-Type: application/json
+
+{
+  "status": "Delivering",
+  "batteryLevel": 78.3,
+  "currentNodeId": null,
+  "currentLatitude": 50.4501,
+  "currentLongitude": 30.5234,
+  "targetNodeId": 2
+}
+
+### 11. Robot Update Status - Charging
+POST {{baseUrl}}/Robot/status
+Authorization: Bearer {{robotToken}}
+Content-Type: application/json
+
+{
+  "status": "Charging",
+  "batteryLevel": 45.2,
+  "currentNodeId": 3,
+  "currentLatitude": null,
+  "currentLongitude": null,
+  "targetNodeId": null
+}
+
+### 12. Robot Update Status - Maintenance
+POST {{baseUrl}}/Robot/status
+Authorization: Bearer {{robotToken}}
+Content-Type: application/json
+
+{
+  "status": "Maintenance",
+  "batteryLevel": 100.0,
+  "currentNodeId": 1,
+  "currentLatitude": null,
+  "currentLongitude": null,
+  "targetNodeId": null
+}
+
+### ========== ROBOT GET OWN INFO ==========
+
+### 13. Robot Get Own Info
+GET {{baseUrl}}/Robot/me
+Authorization: Bearer {{robotToken}}
+
+### ========== TEST WORKFLOW ==========
+
+# WORKFLOW:
+# 1. Register Admin user (endpoint #3)
+# 2. Login Admin (endpoint #2 with admin credentials)
+# 3. Copy admin token to @adminToken variable
+# 4. Register Robot (endpoint #6 or #7)
+# 5. Copy robot token from registration response to @robotToken
+# 6. Update robot status (endpoints #9-12)
+# 7. Get robot info (endpoint #13)
+# 8. Register normal user (endpoint #1)
+# 9. Login normal user (endpoint #2)
+# 10. Copy user token to @userToken
+# 11. Get user profile (endpoint #4)
+
+### ========== ADMIN TESTS ==========
+
+### 14. Admin can view user by ID
+GET {{baseUrl}}/User/1
+Authorization: Bearer {{adminToken}}
+
+### 15. Admin can create node (for robot navigation)
+POST {{baseUrl}}/Node
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Central Hub",
+  "description": "Main distribution center",
+  "latitude": 50.4501,
+  "longitude": 30.5234,
+  "type": "Hub"
+}
+
+### 16. Admin can view all robots
+GET {{baseUrl}}/Robot
+Authorization: Bearer {{adminToken}}
+
+### ========== ERROR TESTS ==========
+
+### 17. Try to register robot with duplicate serial number (should fail)
+POST {{baseUrl}}/Auth/robot/register
+Content-Type: application/json
+
+{
+  "name": "Duplicate Robot",
+  "model": "DR-2024-B",
+  "type": "Ground",
+  "serialNumber": "ROB-001-2024",
+  "accessKey": "different-key"
+}
+
+### 18. Try to login robot with wrong access key (should fail)
+POST {{baseUrl}}/Auth/robot/login
+Content-Type: application/json
+
+{
+  "serialNumber": "ROB-001-2024",
+  "accessKey": "wrong-key"
+}
+
+### 19. Try to update robot status without token (should fail)
+POST {{baseUrl}}/Robot/status
+Content-Type: application/json
+
+{
+  "status": "Idle",
+  "batteryLevel": 100.0,
+  "currentNodeId": 1
+}
+
+### 20. Try to get user profile without token (should fail)
+GET {{baseUrl}}/User/profile

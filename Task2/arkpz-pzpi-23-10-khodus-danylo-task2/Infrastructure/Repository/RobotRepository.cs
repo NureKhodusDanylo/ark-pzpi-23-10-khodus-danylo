@@ -80,5 +80,19 @@ namespace Infrastructure.Repository
         {
             return await _context.Robots.AnyAsync(r => r.Id == robotId);
         }
+
+        public async Task<Robot?> GetBySerialNumberAsync(string serialNumber)
+        {
+            return await _context.Robots
+                .Include(r => r.CurrentNode)
+                .Include(r => r.TargetNode)
+                .Include(r => r.ActiveOrders)
+                .FirstOrDefaultAsync(r => r.SerialNumber == serialNumber);
+        }
+
+        public async Task<bool> SerialNumberExistsAsync(string serialNumber)
+        {
+            return await _context.Robots.AnyAsync(r => r.SerialNumber == serialNumber);
+        }
     }
 }

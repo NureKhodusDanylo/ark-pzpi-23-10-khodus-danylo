@@ -14,6 +14,10 @@ namespace Entities.Models
         public string PasswordHash { get; set; }
         public UserRole? Role { get; set; }
 
+        // User's personal location node
+        public int? PersonalNodeId { get; set; }
+        public virtual Node? PersonalNode { get; set; }
+
         public virtual ICollection<Order> SentOrders { get; set; }
         public virtual ICollection<Order> ReceivedOrders { get; set; }
     }

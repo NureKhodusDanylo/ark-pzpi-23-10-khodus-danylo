@@ -62,6 +62,7 @@ namespace RobDeliveryAPI.Controllers
         /// Get order by ID
         /// </summary>
         [HttpGet("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetOrderById(int id)
         {
             try
@@ -83,6 +84,7 @@ namespace RobDeliveryAPI.Controllers
         /// Get all orders
         /// </summary>
         [HttpGet]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetAllOrders()
         {
             try
@@ -122,6 +124,7 @@ namespace RobDeliveryAPI.Controllers
         /// Get all orders for a specific user (sent and received) - Admin only
         /// </summary>
         [HttpGet("user/{userId}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetUserOrders(int userId)
         {
             try
@@ -139,6 +142,7 @@ namespace RobDeliveryAPI.Controllers
         /// Get orders sent by a specific user
         /// </summary>
         [HttpGet("sent/{senderId}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetSentOrders(int senderId)
         {
             try
@@ -156,6 +160,7 @@ namespace RobDeliveryAPI.Controllers
         /// Get orders received by a specific user
         /// </summary>
         [HttpGet("received/{recipientId}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetReceivedOrders(int recipientId)
         {
             try
@@ -173,6 +178,7 @@ namespace RobDeliveryAPI.Controllers
         /// Get orders by status
         /// </summary>
         [HttpGet("status/{status}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetOrdersByStatus(OrderStatus status)
         {
             try
@@ -189,12 +195,12 @@ namespace RobDeliveryAPI.Controllers
         /// <summary>
         /// Update order status
         /// </summary>
-        [HttpPatch("{id}/status")]
-        public async Task<IActionResult> UpdateOrderStatus(int id, [FromBody] UpdateOrderStatusDTO updateDto)
+        [HttpPatch]
+        public async Task<IActionResult> UpdateOrderStatus([FromBody] UpdateOrderStatusDTO updateDto)
         {
             try
             {
-                var result = await _orderService.UpdateOrderStatusAsync(id, updateDto.NewStatus);
+                var result = await _orderService.UpdateOrderStatusAsync(updateDto.OrderId, updateDto.NewStatus);
                 if (!result)
                 {
                     return NotFound(new { error = "Order not found" });

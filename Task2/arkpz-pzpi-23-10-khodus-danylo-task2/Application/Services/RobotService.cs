@@ -8,10 +8,12 @@ namespace Application.Services
     public class RobotService : IRobotService
     {
         private readonly IRobotRepository _robotRepository;
+        private readonly IPasswordHasher _passwordHasher;
 
-        public RobotService(IRobotRepository robotRepository)
+        public RobotService(IRobotRepository robotRepository, IPasswordHasher passwordHasher)
         {
             _robotRepository = robotRepository;
+            _passwordHasher = passwordHasher;
         }
 
         public async Task<RobotResponseDTO> CreateRobotAsync(CreateRobotDTO robotDto)
@@ -94,6 +96,73 @@ namespace Application.Services
             return true;
         }
 
+        public async Task<(bool Success, int? RobotId, string? ErrorMessage)> RegisterRobotAsync(RobotRegisterDTO registerDto)
+        {
+            // Validate input
+            if (string.IsNullOrWhiteSpace(registerDto.Name))
+                return (false, null, "Robot name is required");
+            if (string.IsNullOrWhiteSpace(registerDto.Model))
+                return (false, null, "Robot model is required");
+            if (string.IsNullOrWhiteSpace(registerDto.SerialNumber))
+                return (false, null, "Serial number is required");
+            if (string.IsNullOrWhiteSpace(registerDto.AccessKey))
+                return (false, null, "Access key is required");
+
+            // Validate robot type
+            if (!Enum.TryParse<RobotType>(registerDto.Type, true, out var robotType))
+                return (false, null, "Invalid robot type. Must be 'GroundCourier' or 'Drone'");
+
+            // Check if serial number already exists
+            if (await _robotRepository.SerialNumberExistsAsync(registerDto.SerialNumber))
+                return (false, null, "Robot with this serial number already exists");
+
+            // Hash the access key
+            var accessKeyHash = _passwordHasher.Hash(registerDto.AccessKey);
+
+            // Create new robot entity
+            var robot = new Robot
+            {
+                Name = registerDto.Name,
+                Model = registerDto.Model,
+                Type = robotType,
+                Status = RobotStatus.Idle,
+                BatteryLevel = 100.0,
+                SerialNumber = registerDto.SerialNumber,
+                AccessKeyHash = accessKeyHash
+            };
+
+            // Save to database
+            await _robotRepository.AddAsync(robot);
+            await _robotRepository.SaveChangesAsync();
+
+            return (true, robot.Id, null);
+        }
+
+        public async Task<(bool Success, int? RobotId, string? ErrorMessage)> AuthenticateRobotAsync(RobotLoginDTO loginDto)
+        {
+            // Validate input
+            if (string.IsNullOrWhiteSpace(loginDto.SerialNumber))
+                return (false, null, "Serial number is required");
+            if (string.IsNullOrWhiteSpace(loginDto.AccessKey))
+                return (false, null, "Access key is required");
+
+            // Get robot by SerialNumber
+            var robot = await _robotRepository.GetBySerialNumberAsync(loginDto.SerialNumber);
+
+            if (robot == null)
+                return (false, null, "Invalid serial number or access key");
+
+            if (string.IsNullOrEmpty(robot.AccessKeyHash))
+                return (false, null, "Robot authentication not configured");
+
+            // Verify access key
+            var hashedAccessKey = _passwordHasher.Hash(loginDto.AccessKey);
+            if (robot.AccessKeyHash != hashedAccessKey)
+                return (false, null, "Invalid serial number or access key");
+
+            return (true, robot.Id, null);
+        }
+
         private static RobotResponseDTO MapToResponseDTO(Robot robot)
         {
             return new RobotResponseDTO
@@ -101,6 +170,7 @@ namespace Application.Services
                 Id = robot.Id,
                 Name = robot.Name,
                 Model = robot.Model,
+                SerialNumber = robot.SerialNumber,
                 Type = robot.Type,
                 TypeName = robot.Type.ToString(),
                 Status = robot.Status,

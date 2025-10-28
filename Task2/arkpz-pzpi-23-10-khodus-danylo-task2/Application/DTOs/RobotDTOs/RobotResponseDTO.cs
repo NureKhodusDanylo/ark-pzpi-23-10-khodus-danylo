@@ -5,6 +5,7 @@ namespace Application.DTOs.RobotDTOs
         public int Id { get; set; }
         public string Name { get; set; }
         public string Model { get; set; }
+        public string? SerialNumber { get; set; } // Robot serial number for identification
         public RobotType Type { get; set; }
         public string TypeName { get; set; }
         public RobotStatus Status { get; set; }

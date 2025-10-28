@@ -58,6 +58,26 @@ namespace Infrastructure
                .HasForeignKey(r => r.CurrentNodeId)
                .IsRequired(false)
                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<Robot>()
+               .HasOne(r => r.TargetNode)
+               .WithMany()
+               .HasForeignKey(r => r.TargetNodeId)
+               .IsRequired(false)
+               .OnDelete(DeleteBehavior.SetNull);
+
+            // Add unique constraint for robot serial number
+            modelBuilder.Entity<Robot>()
+                .HasIndex(r => r.SerialNumber)
+                .IsUnique();
+
+            // User's personal node relationship
+            modelBuilder.Entity<User>()
+                .HasOne(u => u.PersonalNode)
+                .WithMany()
+                .HasForeignKey(u => u.PersonalNodeId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
         }
     }
 }
