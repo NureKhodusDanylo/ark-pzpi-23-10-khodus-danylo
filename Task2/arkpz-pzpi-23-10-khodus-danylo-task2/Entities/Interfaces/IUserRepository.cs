@@ -12,5 +12,6 @@ namespace Application.Abstractions.Interfaces
         Task<bool> IsPasswordValidByEmailAsync(string email, string passwordHash);
         Task AddAsync(User user);
         Task<IEnumerable<User>> GetAllAsync();
+        Task<IEnumerable<User>> SearchUsersAsync(string query);
     }
 }

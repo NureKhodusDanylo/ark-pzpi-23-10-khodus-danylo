@@ -6,7 +6,6 @@ namespace Application.DTOs.AdminDTOs
         public int TotalOrders { get; set; }
         public int TotalRobots { get; set; }
         public int TotalNodes { get; set; }
-        public int TotalPartners { get; set; }
 
         public int ActiveOrders { get; set; }
         public int CompletedOrders { get; set; }

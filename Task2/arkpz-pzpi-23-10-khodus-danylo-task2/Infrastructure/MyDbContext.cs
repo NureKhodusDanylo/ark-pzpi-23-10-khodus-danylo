@@ -15,7 +15,6 @@ namespace Infrastructure
         public DbSet<Order> Orders { get; set; }
         public DbSet<Robot> Robots { get; set; }
         public DbSet<Node> Nodes { get; set; }
-        public DbSet<Partner> Partners { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

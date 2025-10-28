@@ -40,16 +40,32 @@ namespace Application.Services
                 throw new ArgumentException("Sender and recipient cannot be the same user");
             }
 
-            // Validate weight and price
+            // Validate sender has personal node
+            if (!sender.PersonalNodeId.HasValue)
+            {
+                throw new ArgumentException("Sender does not have a personal node configured");
+            }
+
+            // Validate recipient has personal node
+            if (!recipient.PersonalNodeId.HasValue)
+            {
+                throw new ArgumentException("Recipient does not have a personal node configured");
+            }
+
+            // Validate weight and product price
             if (orderDto.Weight <= 0)
             {
                 throw new ArgumentException("Weight must be greater than zero");
             }
 
-            if (orderDto.Price < 0)
+            if (orderDto.ProductPrice < 0)
             {
-                throw new ArgumentException("Price cannot be negative");
+                throw new ArgumentException("Product price cannot be negative");
             }
+
+            // Calculate delivery price based on weight
+            // Formula: Base price (50) + weight-based price (10 per kg)
+            decimal deliveryPrice = CalculateDeliveryPrice(orderDto.Weight);
 
             // Create new order
             var order = new Order
@@ -57,13 +73,14 @@ namespace Application.Services
                 Name = orderDto.Name,
                 Description = orderDto.Description,
                 Weight = orderDto.Weight,
-                Price = orderDto.Price,
-                Paid = false,
+                DeliveryPrice = deliveryPrice,
+                ProductPrice = orderDto.ProductPrice,
+                IsProductPaid = orderDto.IsProductPaid,
                 Status = OrderStatus.Pending,
                 SenderId = senderId,
                 RecipientId = orderDto.RecipientId,
-                PickupNodeId = orderDto.PickupNodeId,
-                DropoffNodeId = orderDto.DropoffNodeId,
+                PickupNodeId = sender.PersonalNodeId.Value,
+                DropoffNodeId = recipient.PersonalNodeId.Value,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -73,6 +90,20 @@ namespace Application.Services
             var createdOrder = await _orderRepository.GetByIdAsync(order.Id);
 
             return MapToResponseDTO(createdOrder!);
+        }
+
+        private static decimal CalculateDeliveryPrice(double weight)
+        {
+            // Base delivery price
+            const decimal basePrice = 50m;
+
+            // Price per kilogram
+            const decimal pricePerKg = 10m;
+
+            // Calculate total delivery price
+            decimal totalPrice = basePrice + (decimal)weight * pricePerKg;
+
+            return Math.Round(totalPrice, 2);
         }
 
         public async Task<OrderResponseDTO?> GetOrderByIdAsync(int orderId)
@@ -245,8 +276,9 @@ namespace Application.Services
                 Name = order.Name,
                 Description = order.Description,
                 Weight = order.Weight,
-                Price = order.Price,
-                Paid = order.Paid,
+                DeliveryPrice = order.DeliveryPrice,
+                ProductPrice = order.ProductPrice,
+                IsProductPaid = order.IsProductPaid,
                 Status = order.Status,
                 CreatedAt = order.CreatedAt,
                 CompletedAt = order.CompletedAt,

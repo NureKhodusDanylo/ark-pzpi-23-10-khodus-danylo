@@ -6,8 +6,9 @@ namespace Application.DTOs.OrderDTOs
         public string Name { get; set; }
         public string Description { get; set; }
         public double Weight { get; set; }
-        public decimal Price { get; set; }
-        public bool Paid { get; set; }
+        public decimal DeliveryPrice { get; set; }
+        public decimal ProductPrice { get; set; }
+        public bool IsProductPaid { get; set; }
         public OrderStatus Status { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? CompletedAt { get; set; }

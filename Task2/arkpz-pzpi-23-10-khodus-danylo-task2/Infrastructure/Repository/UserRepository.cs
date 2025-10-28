@@ -78,5 +78,19 @@ namespace Infrastructure.Repository
 
             return user.PasswordHash == passwordHash;
         }
+
+        public async Task<IEnumerable<User>> SearchUsersAsync(string query)
+        {
+            var lowerQuery = query.ToLower();
+
+            return await _context.Users
+                .Include(u => u.PersonalNode)
+                .Where(u =>
+                    u.UserName.ToLower().Contains(lowerQuery) ||
+                    (u.PhoneNumber != null && u.PhoneNumber.Contains(query)) ||
+                    (u.PersonalNode != null && u.PersonalNode.Name.ToLower().Contains(lowerQuery))
+                )
+                .ToListAsync();
+        }
     }
 }

@@ -31,6 +31,7 @@ namespace RobDeliveryAPI
 
             builder.Services.AddScoped<IAuthorizationService, AuthorizationService>();
             builder.Services.AddScoped<IUserRepository, UserRepository>();
+            builder.Services.AddScoped<IUserService, UserService>();
             builder.Services.AddScoped<IPasswordHasher, Sha256PasswordHasher>();
             builder.Services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();
             builder.Services.AddScoped<ITokenService, BaseTokenService>();
@@ -40,8 +41,6 @@ namespace RobDeliveryAPI
             builder.Services.AddScoped<INodeRepository, NodeRepository>();
             builder.Services.AddScoped<IRobotService, RobotService>();
             builder.Services.AddScoped<IRobotRepository, RobotRepository>();
-            builder.Services.AddScoped<IPartnerService, PartnerService>();
-            builder.Services.AddScoped<IPartnerRepository, PartnerRepository>();
             builder.Services.AddScoped<IAdminService, AdminService>();
 
             // Configure JWT Authentication

@@ -12,20 +12,17 @@ namespace Application.Services
         private readonly IOrderRepository _orderRepository;
         private readonly IRobotRepository _robotRepository;
         private readonly INodeRepository _nodeRepository;
-        private readonly IPartnerRepository _partnerRepository;
 
         public AdminService(
             IUserRepository userRepository,
             IOrderRepository orderRepository,
             IRobotRepository robotRepository,
-            INodeRepository nodeRepository,
-            IPartnerRepository partnerRepository)
+            INodeRepository nodeRepository)
         {
             _userRepository = userRepository;
             _orderRepository = orderRepository;
             _robotRepository = robotRepository;
             _nodeRepository = nodeRepository;
-            _partnerRepository = partnerRepository;
         }
 
         public async Task<SystemStatsDTO> GetSystemStatsAsync()
@@ -34,7 +31,6 @@ namespace Application.Services
             var orders = await _orderRepository.GetAllAsync();
             var robots = await _robotRepository.GetAllAsync();
             var nodes = await _nodeRepository.GetAllAsync();
-            var partners = await _partnerRepository.GetAllAsync();
 
             var ordersList = orders.ToList();
             var robotsList = robots.ToList();
@@ -45,7 +41,6 @@ namespace Application.Services
                 TotalOrders = ordersList.Count,
                 TotalRobots = robotsList.Count,
                 TotalNodes = nodes.Count(),
-                TotalPartners = partners.Count(),
 
                 ActiveOrders = ordersList.Count(o => o.Status == OrderStatus.Processing || o.Status == OrderStatus.EnRoute),
                 CompletedOrders = ordersList.Count(o => o.Status == OrderStatus.Delivered),
@@ -56,7 +51,7 @@ namespace Application.Services
                 ChargingRobots = robotsList.Count(r => r.Status == RobotStatus.Charging),
 
                 AverageBatteryLevel = robotsList.Any() ? robotsList.Average(r => r.BatteryLevel) : 0,
-                TotalRevenue = (double)ordersList.Where(o => o.Paid && o.Status == OrderStatus.Delivered).Sum(o => o.Price)
+                TotalRevenue = (double)ordersList.Where(o => o.IsProductPaid && o.Status == OrderStatus.Delivered).Sum(o => o.DeliveryPrice + o.ProductPrice)
             };
 
             return stats;
@@ -72,8 +67,9 @@ namespace Application.Services
                 o.Name,
                 o.Description,
                 o.Weight,
-                o.Price,
-                o.Paid,
+                o.DeliveryPrice,
+                o.ProductPrice,
+                o.IsProductPaid,
                 Status = o.Status.ToString(),
                 o.CreatedAt,
                 o.CompletedAt,

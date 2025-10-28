@@ -1,0 +1,167 @@
+using Application.Abstractions.Interfaces;
+using Application.DTOs.UserDTOs;
+using Application.DTOs.NodeDTOs;
+using Entities.Interfaces;
+
+namespace Application.Services
+{
+    public class UserService : IUserService
+    {
+        private readonly IUserRepository _userRepository;
+        private readonly INodeRepository _nodeRepository;
+
+        public UserService(IUserRepository userRepository, INodeRepository nodeRepository)
+        {
+            _userRepository = userRepository;
+            _nodeRepository = nodeRepository;
+        }
+
+        public async Task<UserProfileDTO?> GetUserByIdAsync(int userId)
+        {
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null)
+            {
+                return null;
+            }
+
+            return new UserProfileDTO
+            {
+                Id = user.Id,
+                UserName = user.UserName,
+                Email = user.Email,
+                PhoneNumber = user.PhoneNumber,
+                Role = user.Role?.ToString(),
+                SentOrdersCount = user.SentOrders?.Count ?? 0,
+                ReceivedOrdersCount = user.ReceivedOrders?.Count ?? 0
+            };
+        }
+
+        public async Task<IEnumerable<UserProfileDTO>> GetAllUsersAsync()
+        {
+            var users = await _userRepository.GetAllAsync();
+
+            return users.Select(user => new UserProfileDTO
+            {
+                Id = user.Id,
+                UserName = user.UserName,
+                Email = user.Email,
+                PhoneNumber = user.PhoneNumber,
+                Role = user.Role?.ToString(),
+                SentOrdersCount = user.SentOrders?.Count ?? 0,
+                ReceivedOrdersCount = user.ReceivedOrders?.Count ?? 0
+            }).ToList();
+        }
+
+        public async Task<IEnumerable<UserSearchResultDTO>> SearchUsersAsync(string query, int currentUserId)
+        {
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                throw new ArgumentException("Search query cannot be empty");
+            }
+
+            var users = await _userRepository.SearchUsersAsync(query);
+
+            // Exclude the current user from search results
+            return users
+                .Where(user => user.Id != currentUserId)
+                .Select(user => new UserSearchResultDTO
+                {
+                    Id = user.Id,
+                    UserName = user.UserName,
+                    PhoneNumber = user.PhoneNumber,
+                    Address = user.PersonalNode?.Name
+                }).ToList();
+        }
+
+        public async Task<UserProfileDTO?> GetProfileAsync(int userId)
+        {
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null)
+            {
+                return null;
+            }
+
+            return new UserProfileDTO
+            {
+                Id = user.Id,
+                UserName = user.UserName,
+                Email = user.Email,
+                PhoneNumber = user.PhoneNumber,
+                Role = user.Role?.ToString(),
+                SentOrdersCount = user.SentOrders?.Count ?? 0,
+                ReceivedOrdersCount = user.ReceivedOrders?.Count ?? 0
+            };
+        }
+
+        public async Task<NodeResponseDTO?> GetMyNodeAsync(int userId)
+        {
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null)
+            {
+                throw new ArgumentException("User not found");
+            }
+
+            if (user.PersonalNodeId == null)
+            {
+                return null;
+            }
+
+            var node = await _nodeRepository.GetByIdAsync(user.PersonalNodeId.Value);
+            if (node == null)
+            {
+                return null;
+            }
+
+            return new NodeResponseDTO
+            {
+                Id = node.Id,
+                Name = node.Name,
+                Latitude = node.Latitude,
+                Longitude = node.Longitude,
+                Type = node.Type,
+                TypeName = node.Type.ToString()
+            };
+        }
+
+        public async Task<NodeResponseDTO> UpdateMyNodeAsync(int userId, UpdateMyNodeDTO updateDto)
+        {
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null)
+            {
+                throw new ArgumentException("User not found");
+            }
+
+            if (user.PersonalNodeId == null)
+            {
+                throw new ArgumentException("Personal node not found");
+            }
+
+            var node = await _nodeRepository.GetByIdAsync(user.PersonalNodeId.Value);
+            if (node == null)
+            {
+                throw new ArgumentException("Personal node not found");
+            }
+
+            // Update node coordinates and address
+            node.Latitude = updateDto.Latitude;
+            node.Longitude = updateDto.Longitude;
+            if (!string.IsNullOrEmpty(updateDto.Address))
+            {
+                node.Name = updateDto.Address;
+            }
+
+            await _nodeRepository.UpdateAsync(node);
+            await _nodeRepository.SaveChangesAsync();
+
+            return new NodeResponseDTO
+            {
+                Id = node.Id,
+                Name = node.Name,
+                Latitude = node.Latitude,
+                Longitude = node.Longitude,
+                Type = node.Type,
+                TypeName = node.Type.ToString()
+            };
+        }
+    }
+}

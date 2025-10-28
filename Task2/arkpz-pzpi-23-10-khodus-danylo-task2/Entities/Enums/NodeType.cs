@@ -1,7 +1,6 @@
 ﻿public enum NodeType
 {
-    Depot,             
+    UserNode,
     ChargingStation,
-    PickupLocation,   
-    CustomerDropoff    
+    Depot
 }

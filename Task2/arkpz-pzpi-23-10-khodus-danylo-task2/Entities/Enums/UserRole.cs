@@ -3,7 +3,7 @@
     public enum UserRole
     {
         User,
-        Partner,
-        Admin
+        Admin,
+        Iot
     }
 }

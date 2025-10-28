@@ -72,7 +72,7 @@ namespace Application.Services
                     : registerData.Address,
                 Latitude = registerData.Latitude,
                 Longitude = registerData.Longitude,
-                Type = NodeType.CustomerDropoff
+                Type = NodeType.UserNode
             };
 
             await _nodeRepository.AddAsync(personalNode);
@@ -116,7 +116,7 @@ namespace Application.Services
                         : registerData.Address,
                     Latitude = registerData.Latitude,
                     Longitude = registerData.Longitude,
-                    Type = NodeType.CustomerDropoff
+                    Type = NodeType.UserNode
                 };
 
                 await _nodeRepository.AddAsync(personalNode);

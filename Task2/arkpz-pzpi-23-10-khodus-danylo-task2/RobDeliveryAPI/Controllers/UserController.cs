@@ -1,8 +1,5 @@
 ﻿using Application.Abstractions.Interfaces;
 using Application.DTOs.UserDTOs;
-using Application.DTOs.NodeDTOs;
-using Entities.Interfaces;
-using Entities.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -15,13 +12,11 @@ namespace RobDeliveryAPI.Controllers
     [Authorize]
     public class UserController : ControllerBase
     {
-        private readonly IUserRepository _userRepository;
-        private readonly INodeRepository _nodeRepository;
+        private readonly IUserService _userService;
 
-        public UserController(IUserRepository userRepository, INodeRepository nodeRepository)
+        public UserController(IUserService userService)
         {
-            _userRepository = userRepository;
-            _nodeRepository = nodeRepository;
+            _userService = userService;
         }
 
         [HttpGet("profile")]
@@ -33,22 +28,11 @@ namespace RobDeliveryAPI.Controllers
                 return Unauthorized(new { error = "Invalid token" });
             }
 
-            var user = await _userRepository.GetByIdAsync(userId);
-            if (user == null)
+            var profileDTO = await _userService.GetProfileAsync(userId);
+            if (profileDTO == null)
             {
                 return NotFound(new { error = "User not found" });
             }
-
-            var profileDTO = new UserProfileDTO
-            {
-                Id = user.Id,
-                UserName = user.UserName,
-                Email = user.Email,
-                PhoneNumber = user.PhoneNumber,
-                Role = user.Role?.ToString(),
-                SentOrdersCount = user.SentOrders?.Count ?? 0,
-                ReceivedOrdersCount = user.ReceivedOrders?.Count ?? 0
-            };
 
             return Ok(profileDTO);
         }
@@ -57,24 +41,13 @@ namespace RobDeliveryAPI.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetUserById(int id)
         {
-            var user = await _userRepository.GetByIdAsync(id);
-            if (user == null)
+            var userDto = await _userService.GetUserByIdAsync(id);
+            if (userDto == null)
             {
                 return NotFound(new { error = "User not found" });
             }
 
-            var profileDTO = new UserProfileDTO
-            {
-                Id = user.Id,
-                UserName = user.UserName,
-                Email = user.Email,
-                PhoneNumber = user.PhoneNumber,
-                Role = user.Role?.ToString(),
-                SentOrdersCount = user.SentOrders?.Count ?? 0,
-                ReceivedOrdersCount = user.ReceivedOrders?.Count ?? 0
-            };
-
-            return Ok(profileDTO);
+            return Ok(userDto);
         }
 
         [HttpGet("my-node")]
@@ -86,34 +59,20 @@ namespace RobDeliveryAPI.Controllers
                 return Unauthorized(new { error = "Invalid token" });
             }
 
-            var user = await _userRepository.GetByIdAsync(userId);
-            if (user == null)
+            try
             {
-                return NotFound(new { error = "User not found" });
+                var nodeDTO = await _userService.GetMyNodeAsync(userId);
+                if (nodeDTO == null)
+                {
+                    return NotFound(new { error = "Personal node not found" });
+                }
+
+                return Ok(nodeDTO);
             }
-
-            if (user.PersonalNodeId == null)
+            catch (ArgumentException ex)
             {
-                return NotFound(new { error = "Personal node not found" });
+                return NotFound(new { error = ex.Message });
             }
-
-            var node = await _nodeRepository.GetByIdAsync(user.PersonalNodeId.Value);
-            if (node == null)
-            {
-                return NotFound(new { error = "Personal node not found" });
-            }
-
-            var nodeDTO = new NodeResponseDTO
-            {
-                Id = node.Id,
-                Name = node.Name,
-                Latitude = node.Latitude,
-                Longitude = node.Longitude,
-                Type = node.Type,
-                TypeName = node.Type.ToString()
-            };
-
-            return Ok(nodeDTO);
         }
 
         [HttpPut("my-node")]
@@ -125,45 +84,48 @@ namespace RobDeliveryAPI.Controllers
                 return Unauthorized(new { error = "Invalid token" });
             }
 
-            var user = await _userRepository.GetByIdAsync(userId);
-            if (user == null)
+            try
             {
-                return NotFound(new { error = "User not found" });
+                var nodeDTO = await _userService.UpdateMyNodeAsync(userId, updateDto);
+                return Ok(new { message = "Personal node updated successfully", node = nodeDTO });
+            }
+            catch (ArgumentException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+        }
+
+        [HttpGet]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> GetAllUsers()
+        {
+            var userDTOs = await _userService.GetAllUsersAsync();
+            return Ok(userDTOs);
+        }
+
+        [HttpGet("search")]
+        public async Task<IActionResult> SearchUsers([FromQuery] string? query)
+        {
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                return BadRequest(new { error = "Search query cannot be empty" });
             }
 
-            if (user.PersonalNodeId == null)
+            var userIdClaim = User.FindFirst("Id")?.Value;
+            if (userIdClaim == null || !int.TryParse(userIdClaim, out int currentUserId))
             {
-                return NotFound(new { error = "Personal node not found" });
+                return Unauthorized(new { error = "Invalid token" });
             }
 
-            var node = await _nodeRepository.GetByIdAsync(user.PersonalNodeId.Value);
-            if (node == null)
+            try
             {
-                return NotFound(new { error = "Personal node not found" });
+                var userDTOs = await _userService.SearchUsersAsync(query, currentUserId);
+                return Ok(userDTOs);
             }
-
-            // Update node coordinates and address
-            node.Latitude = updateDto.Latitude;
-            node.Longitude = updateDto.Longitude;
-            if (!string.IsNullOrEmpty(updateDto.Address))
+            catch (ArgumentException ex)
             {
-                node.Name = updateDto.Address;
+                return BadRequest(new { error = ex.Message });
             }
-
-            await _nodeRepository.UpdateAsync(node);
-            await _nodeRepository.SaveChangesAsync();
-
-            var nodeDTO = new NodeResponseDTO
-            {
-                Id = node.Id,
-                Name = node.Name,
-                Latitude = node.Latitude,
-                Longitude = node.Longitude,
-                Type = node.Type,
-                TypeName = node.Type.ToString()
-            };
-
-            return Ok(new { message = "Personal node updated successfully", node = nodeDTO });
         }
     }
 }

@@ -8,8 +8,12 @@ namespace Entities.Models
         public string Name { get; set; }
         public string Description { get; set; }
         public double Weight { get; set; }
-        public decimal Price { get; set; }
-        public bool Paid { get; set; }
+
+        // Pricing fields
+        public decimal DeliveryPrice { get; set; }  // Price for delivery service
+        public decimal ProductPrice { get; set; }   // Price of the product (for insurance/compensation)
+        public bool IsProductPaid { get; set; }     // Whether user has paid for the product
+
         public OrderStatus Status { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? CompletedAt { get; set; }
