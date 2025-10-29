@@ -304,6 +304,7 @@ namespace RobDeliveryAPI.Controllers
         /// Assign a robot to an order
         /// </summary>
         [HttpPost("{id}/assign-robot")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> AssignRobotToOrder(int id, [FromBody] AssignRobotDTO assignDto)
         {
             try

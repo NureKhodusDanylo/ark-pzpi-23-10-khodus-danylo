@@ -1,0 +1,162 @@
+### Payment API Testing
+
+# Variables
+@baseUrl = http://localhost:5102
+@token = your_jwt_token_here
+
+### Process PayPal Payment
+POST {{baseUrl}}/api/Payments/process
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "orderId": 1,
+  "amount": 150.50,
+  "paymentMethod": "PayPal",
+  "currency": "UAH",
+  "payPalEmail": "user@example.com"
+}
+
+### Process Google Pay Payment
+POST {{baseUrl}}/api/Payments/process
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "orderId": 2,
+  "amount": 250.00,
+  "paymentMethod": "GooglePay",
+  "currency": "UAH",
+  "googlePayToken": "gpay_token_1234567890abcdef"
+}
+
+### Process Stripe Payment
+POST {{baseUrl}}/api/Payments/process
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "orderId": 3,
+  "amount": 350.75,
+  "paymentMethod": "Stripe",
+  "currency": "UAH",
+  "stripeCardToken": "tok_1234567890abcdef"
+}
+
+### Process Payment - Invalid Amount (Should fail)
+POST {{baseUrl}}/api/Payments/process
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "orderId": 4,
+  "amount": 0,
+  "paymentMethod": "PayPal",
+  "currency": "UAH",
+  "payPalEmail": "user@example.com"
+}
+
+### Process Payment - Invalid PaymentMethod (Should fail)
+POST {{baseUrl}}/api/Payments/process
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "orderId": 5,
+  "amount": 100.00,
+  "paymentMethod": "Bitcoin",
+  "currency": "UAH"
+}
+
+### Process PayPal Payment - Missing Email (Should fail)
+POST {{baseUrl}}/api/Payments/process
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "orderId": 6,
+  "amount": 200.00,
+  "paymentMethod": "PayPal",
+  "currency": "UAH"
+}
+
+### Process Google Pay Payment - Invalid Token (Should fail)
+POST {{baseUrl}}/api/Payments/process
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "orderId": 7,
+  "amount": 200.00,
+  "paymentMethod": "GooglePay",
+  "currency": "UAH",
+  "googlePayToken": "short"
+}
+
+### Process Stripe Payment - Invalid Token Format (Should fail)
+POST {{baseUrl}}/api/Payments/process
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "orderId": 8,
+  "amount": 200.00,
+  "paymentMethod": "Stripe",
+  "currency": "UAH",
+  "stripeCardToken": "invalid_token_format"
+}
+
+### Refund PayPal Payment
+POST {{baseUrl}}/api/Payments/refund
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "transactionId": "PP-12345678",
+  "paymentMethod": "PayPal",
+  "amount": 150.50
+}
+
+### Refund Google Pay Payment
+POST {{baseUrl}}/api/Payments/refund
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "transactionId": "GP-87654321",
+  "paymentMethod": "GooglePay",
+  "amount": 250.00
+}
+
+### Refund Stripe Payment
+POST {{baseUrl}}/api/Payments/refund
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "transactionId": "ch_1234567890abcdef12345678",
+  "paymentMethod": "Stripe",
+  "amount": 350.75
+}
+
+### Refund - Invalid Amount (Should fail)
+POST {{baseUrl}}/api/Payments/refund
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "transactionId": "PP-12345678",
+  "paymentMethod": "PayPal",
+  "amount": 0
+}
+
+### Refund - Invalid Payment Method (Should fail)
+POST {{baseUrl}}/api/Payments/refund
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "transactionId": "BTC-12345678",
+  "paymentMethod": "Bitcoin",
+  "amount": 100.00
+}

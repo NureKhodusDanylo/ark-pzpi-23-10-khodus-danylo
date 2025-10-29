@@ -104,6 +104,7 @@ namespace RobDeliveryAPI.Controllers
         /// Get profile photo of specific user by ID
         /// </summary>
         [HttpGet("{userId}/photo")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetUserPhoto(int userId)
         {
             try

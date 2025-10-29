@@ -1,5 +1,6 @@
 using Application.Abstractions.Interfaces;
 using Application.Services;
+using Application.Services.PaymentServices;
 using Entities.Config;
 using Entities.Interfaces;
 using Infrastructure;
@@ -43,6 +44,12 @@ namespace RobDeliveryAPI
             builder.Services.AddScoped<IRobotRepository, RobotRepository>();
             builder.Services.AddScoped<IAdminService, AdminService>();
             builder.Services.AddScoped<IFileRepository, FileRepository>();
+
+            // Payment services
+            builder.Services.AddScoped<PayPalPaymentService>();
+            builder.Services.AddScoped<GooglePayPaymentService>();
+            builder.Services.AddScoped<StripePaymentService>();
+            builder.Services.AddScoped<PaymentProcessor>();
 
             // Add HttpContextAccessor for accessing HTTP context in services
             builder.Services.AddHttpContextAccessor();
