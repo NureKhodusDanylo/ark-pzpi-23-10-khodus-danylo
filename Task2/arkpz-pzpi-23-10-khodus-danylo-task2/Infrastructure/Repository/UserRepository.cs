@@ -16,6 +16,8 @@ namespace Infrastructure.Repository
             return await _context.Users
                 .Include(u => u.SentOrders)
                 .Include(u => u.ReceivedOrders)
+                .Include(u => u.PersonalNode)
+                .Include(u => u.ProfilePhoto)
                 .FirstOrDefaultAsync(u => u.Id == userId);
         }
 
@@ -48,7 +50,12 @@ namespace Infrastructure.Repository
         }
         public async Task<IEnumerable<User>> GetAllAsync()
         {
-            return await _context.Users.ToListAsync();
+            return await _context.Users
+                .Include(u => u.SentOrders)
+                .Include(u => u.ReceivedOrders)
+                .Include(u => u.PersonalNode)
+                .Include(u => u.ProfilePhoto)
+                .ToListAsync();
         }
         public async Task<bool> ExistsByEmailAsync(string email)
         {

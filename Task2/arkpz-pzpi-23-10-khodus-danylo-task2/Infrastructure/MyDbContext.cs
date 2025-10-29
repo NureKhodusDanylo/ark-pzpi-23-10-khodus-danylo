@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Reflection.Emit;
 using Entities.Models;
+using FileEntity = Entities.Models.File;
 
 namespace Infrastructure
 {
@@ -15,6 +16,7 @@ namespace Infrastructure
         public DbSet<Order> Orders { get; set; }
         public DbSet<Robot> Robots { get; set; }
         public DbSet<Node> Nodes { get; set; }
+        public DbSet<FileEntity> Files { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -75,6 +77,21 @@ namespace Infrastructure
                 .HasOne(u => u.PersonalNode)
                 .WithMany()
                 .HasForeignKey(u => u.PersonalNodeId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // File relationships
+            modelBuilder.Entity<FileEntity>()
+                .HasOne(f => f.Order)
+                .WithMany(o => o.Images)
+                .HasForeignKey(f => f.OrderId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<FileEntity>()
+                .HasOne(f => f.User)
+                .WithOne(u => u.ProfilePhoto)
+                .HasForeignKey<User>(u => u.ProfilePhotoId)
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.SetNull);
         }

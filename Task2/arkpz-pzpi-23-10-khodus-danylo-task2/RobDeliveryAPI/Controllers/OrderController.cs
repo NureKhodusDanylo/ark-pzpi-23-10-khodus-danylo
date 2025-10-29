@@ -3,6 +3,8 @@ using Application.DTOs.OrderDTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using Entities.Interfaces;
+using FileEntity = Entities.Models.File;
 
 namespace RobDeliveryAPI.Controllers
 {
@@ -12,10 +14,17 @@ namespace RobDeliveryAPI.Controllers
     public class OrderController : ControllerBase
     {
         private readonly IOrderService _orderService;
+        private readonly IFileRepository _fileRepository;
+        private readonly IWebHostEnvironment _environment;
 
-        public OrderController(IOrderService orderService)
+        public OrderController(
+            IOrderService orderService,
+            IFileRepository fileRepository,
+            IWebHostEnvironment environment)
         {
             _orderService = orderService;
+            _fileRepository = fileRepository;
+            _environment = environment;
         }
 
         /// <summary>
@@ -32,16 +41,90 @@ namespace RobDeliveryAPI.Controllers
         }
 
         /// <summary>
-        /// Create a new order (uses authenticated user from JWT token)
+        /// Create a new order with optional images (uses authenticated user from JWT token)
         /// </summary>
-        /// <param name="orderDto">Order details</param>
         [HttpPost]
-        public async Task<IActionResult> CreateOrder([FromBody] CreateOrderDTO orderDto)
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> CreateOrder(
+            [FromForm] string name,
+            [FromForm] string description,
+            [FromForm] double weight,
+            [FromForm] decimal productPrice,
+            [FromForm] bool isProductPaid,
+            [FromForm] int recipientId,
+            IFormFileCollection? files)
         {
             try
             {
                 int senderId = GetAuthenticatedUserId();
+
+                // Create order DTO
+                var orderDto = new CreateOrderDTO
+                {
+                    Name = name,
+                    Description = description,
+                    Weight = weight,
+                    ProductPrice = productPrice,
+                    IsProductPaid = isProductPaid,
+                    RecipientId = recipientId
+                };
+
+                // Create order
                 var result = await _orderService.CreateOrderAsync(senderId, orderDto);
+
+                // Upload files if provided
+                if (files != null && files.Count > 0)
+                {
+                    var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" };
+                    const long maxFileSize = 5 * 1024 * 1024; // 5MB
+
+                    foreach (var file in files)
+                    {
+                        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+                        if (!allowedExtensions.Contains(extension))
+                        {
+                            return BadRequest(new { error = $"File {file.FileName} has invalid extension. Allowed: {string.Join(", ", allowedExtensions)}" });
+                        }
+
+                        if (file.Length > maxFileSize)
+                        {
+                            return BadRequest(new { error = $"File {file.FileName} exceeds maximum size of 5MB" });
+                        }
+
+                        // Create upload directory
+                        var uploadsPath = Path.Combine(_environment.ContentRootPath, "Uploads", "Orders", result.Id.ToString());
+                        Directory.CreateDirectory(uploadsPath);
+
+                        // Generate unique filename
+                        var uniqueFileName = $"{Guid.NewGuid()}{extension}";
+                        var filePath = Path.Combine(uploadsPath, uniqueFileName);
+
+                        // Save file to disk
+                        using (var stream = new FileStream(filePath, FileMode.Create))
+                        {
+                            await file.CopyToAsync(stream);
+                        }
+
+                        // Create file entity
+                        var fileEntity = new FileEntity
+                        {
+                            FileName = file.FileName,
+                            FilePath = $"/Uploads/Orders/{result.Id}/{uniqueFileName}",
+                            ContentType = file.ContentType,
+                            FileSize = file.Length,
+                            OrderId = result.Id,
+                            UploadedAt = DateTime.UtcNow
+                        };
+
+                        await _fileRepository.AddAsync(fileEntity);
+                    }
+
+                    await _fileRepository.SaveChangesAsync();
+
+                    // Reload order with images
+                    result = await _orderService.GetOrderByIdAsync(result.Id);
+                }
+
                 return CreatedAtAction(nameof(GetOrderById), new { id = result.Id }, result);
             }
             catch (UnauthorizedAccessException ex)

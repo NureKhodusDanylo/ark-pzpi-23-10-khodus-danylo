@@ -9,11 +9,26 @@ namespace Application.Services
     {
         private readonly IUserRepository _userRepository;
         private readonly INodeRepository _nodeRepository;
+        private readonly IPasswordHasher _passwordHasher;
 
-        public UserService(IUserRepository userRepository, INodeRepository nodeRepository)
+        public UserService(
+            IUserRepository userRepository,
+            INodeRepository nodeRepository,
+            IPasswordHasher passwordHasher)
         {
             _userRepository = userRepository;
             _nodeRepository = nodeRepository;
+            _passwordHasher = passwordHasher;
+        }
+
+        private string? GetProfilePhotoUrl(int userId, bool hasPhoto)
+        {
+            if (!hasPhoto)
+                return null;
+
+            // Return endpoint URL that can be used to fetch the photo
+            // Frontend should prepend the base URL (e.g., http://localhost:5102)
+            return $"/api/User/{userId}/photo";
         }
 
         public async Task<UserProfileDTO?> GetUserByIdAsync(int userId)
@@ -29,10 +44,16 @@ namespace Application.Services
                 Id = user.Id,
                 UserName = user.UserName,
                 Email = user.Email,
+                GoogleId = user.GoogleId,
                 PhoneNumber = user.PhoneNumber,
                 Role = user.Role?.ToString(),
                 SentOrdersCount = user.SentOrders?.Count ?? 0,
-                ReceivedOrdersCount = user.ReceivedOrders?.Count ?? 0
+                ReceivedOrdersCount = user.ReceivedOrders?.Count ?? 0,
+                ProfilePhotoUrl = GetProfilePhotoUrl(user.Id, user.ProfilePhotoId.HasValue),
+                PersonalNodeId = user.PersonalNodeId,
+                Address = user.PersonalNode?.Name,
+                Latitude = user.PersonalNode?.Latitude,
+                Longitude = user.PersonalNode?.Longitude
             };
         }
 
@@ -45,10 +66,16 @@ namespace Application.Services
                 Id = user.Id,
                 UserName = user.UserName,
                 Email = user.Email,
+                GoogleId = user.GoogleId,
                 PhoneNumber = user.PhoneNumber,
                 Role = user.Role?.ToString(),
                 SentOrdersCount = user.SentOrders?.Count ?? 0,
-                ReceivedOrdersCount = user.ReceivedOrders?.Count ?? 0
+                ReceivedOrdersCount = user.ReceivedOrders?.Count ?? 0,
+                ProfilePhotoUrl = GetProfilePhotoUrl(user.Id, user.ProfilePhotoId.HasValue),
+                PersonalNodeId = user.PersonalNodeId,
+                Address = user.PersonalNode?.Name,
+                Latitude = user.PersonalNode?.Latitude,
+                Longitude = user.PersonalNode?.Longitude
             }).ToList();
         }
 
@@ -86,10 +113,16 @@ namespace Application.Services
                 Id = user.Id,
                 UserName = user.UserName,
                 Email = user.Email,
+                GoogleId = user.GoogleId,
                 PhoneNumber = user.PhoneNumber,
                 Role = user.Role?.ToString(),
                 SentOrdersCount = user.SentOrders?.Count ?? 0,
-                ReceivedOrdersCount = user.ReceivedOrders?.Count ?? 0
+                ReceivedOrdersCount = user.ReceivedOrders?.Count ?? 0,
+                ProfilePhotoUrl = GetProfilePhotoUrl(user.Id, user.ProfilePhotoId.HasValue),
+                PersonalNodeId = user.PersonalNodeId,
+                Address = user.PersonalNode?.Name,
+                Latitude = user.PersonalNode?.Latitude,
+                Longitude = user.PersonalNode?.Longitude
             };
         }
 
@@ -161,6 +194,53 @@ namespace Application.Services
                 Longitude = node.Longitude,
                 Type = node.Type,
                 TypeName = node.Type.ToString()
+            };
+        }
+
+        public async Task<UserProfileDTO> UpdateProfileAsync(int userId, UpdateUserProfileDTO updateDto)
+        {
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null)
+            {
+                throw new ArgumentException("User not found");
+            }
+
+            // Update username if provided
+            if (!string.IsNullOrWhiteSpace(updateDto.UserName))
+            {
+                user.UserName = updateDto.UserName;
+            }
+
+            // Update phone number if provided
+            if (!string.IsNullOrWhiteSpace(updateDto.PhoneNumber))
+            {
+                user.PhoneNumber = updateDto.PhoneNumber;
+            }
+
+            // Update password if provided
+            if (!string.IsNullOrWhiteSpace(updateDto.Password))
+            {
+                user.PasswordHash = _passwordHasher.Hash(updateDto.Password);
+            }
+
+            await _userRepository.UpdateAsync(user);
+            await _userRepository.SaveChangesAsync();
+
+            return new UserProfileDTO
+            {
+                Id = user.Id,
+                UserName = user.UserName,
+                Email = user.Email,
+                GoogleId = user.GoogleId,
+                PhoneNumber = user.PhoneNumber,
+                Role = user.Role?.ToString(),
+                SentOrdersCount = user.SentOrders?.Count ?? 0,
+                ReceivedOrdersCount = user.ReceivedOrders?.Count ?? 0,
+                ProfilePhotoUrl = GetProfilePhotoUrl(user.Id, user.ProfilePhotoId.HasValue),
+                PersonalNodeId = user.PersonalNodeId,
+                Address = user.PersonalNode?.Name,
+                Latitude = user.PersonalNode?.Latitude,
+                Longitude = user.PersonalNode?.Longitude
             };
         }
     }

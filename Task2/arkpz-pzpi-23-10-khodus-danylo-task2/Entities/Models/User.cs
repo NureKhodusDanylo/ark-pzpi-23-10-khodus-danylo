@@ -18,6 +18,10 @@ namespace Entities.Models
         public int? PersonalNodeId { get; set; }
         public virtual Node? PersonalNode { get; set; }
 
+        // Profile photo
+        public int? ProfilePhotoId { get; set; }
+        public virtual File? ProfilePhoto { get; set; }
+
         public virtual ICollection<Order> SentOrders { get; set; }
         public virtual ICollection<Order> ReceivedOrders { get; set; }
     }

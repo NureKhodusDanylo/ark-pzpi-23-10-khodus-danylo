@@ -33,5 +33,8 @@ namespace Entities.Models
 
         public int DropoffNodeId { get; set; }
         public virtual Node DropoffNode { get; set; }
+
+        // Collection of images for this order
+        public virtual ICollection<File> Images { get; set; }
     }
 }

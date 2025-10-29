@@ -1,5 +1,6 @@
 using Application.Abstractions.Interfaces;
 using Application.DTOs.OrderDTOs;
+using Application.DTOs.FileDTOs;
 using Entities.Interfaces;
 using Entities.Models;
 
@@ -291,7 +292,16 @@ namespace Application.Services
                 PickupNodeId = order.PickupNodeId,
                 PickupNodeName = order.PickupNode?.Name ?? "Unknown",
                 DropoffNodeId = order.DropoffNodeId,
-                DropoffNodeName = order.DropoffNode?.Name ?? "Unknown"
+                DropoffNodeName = order.DropoffNode?.Name ?? "Unknown",
+                Images = order.Images?.Select(img => new FileResponseDTO
+                {
+                    Id = img.Id,
+                    FileName = img.FileName,
+                    FilePath = img.FilePath,
+                    ContentType = img.ContentType,
+                    FileSize = img.FileSize,
+                    UploadedAt = img.UploadedAt
+                }).ToList()
             };
         }
 

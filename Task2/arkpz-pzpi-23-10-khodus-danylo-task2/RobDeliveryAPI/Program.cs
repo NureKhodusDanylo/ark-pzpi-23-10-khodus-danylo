@@ -42,6 +42,10 @@ namespace RobDeliveryAPI
             builder.Services.AddScoped<IRobotService, RobotService>();
             builder.Services.AddScoped<IRobotRepository, RobotRepository>();
             builder.Services.AddScoped<IAdminService, AdminService>();
+            builder.Services.AddScoped<IFileRepository, FileRepository>();
+
+            // Add HttpContextAccessor for accessing HTTP context in services
+            builder.Services.AddHttpContextAccessor();
 
             // Configure JWT Authentication
             var jwtKey = config.Jwt.Key;
@@ -107,6 +111,23 @@ namespace RobDeliveryAPI
                         Array.Empty<string>()
                     }
                 });
+
+                // Support for IFormFile in Swagger
+                options.MapType<IFormFile>(() => new OpenApiSchema
+                {
+                    Type = "string",
+                    Format = "binary"
+                });
+
+                options.MapType<IFormFileCollection>(() => new OpenApiSchema
+                {
+                    Type = "array",
+                    Items = new OpenApiSchema
+                    {
+                        Type = "string",
+                        Format = "binary"
+                    }
+                });
             });
 
             var app = builder.Build();
@@ -125,6 +146,14 @@ namespace RobDeliveryAPI
             }
 
             app.UseHttpsRedirection();
+
+            // Enable serving static files from Uploads directory
+            app.UseStaticFiles(new StaticFileOptions
+            {
+                FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(
+                    Path.Combine(app.Environment.ContentRootPath, "Uploads")),
+                RequestPath = "/Uploads"
+            });
 
             app.UseAuthentication();
             app.UseAuthorization();

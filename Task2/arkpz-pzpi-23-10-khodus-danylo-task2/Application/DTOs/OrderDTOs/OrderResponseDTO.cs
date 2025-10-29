@@ -1,3 +1,5 @@
+using Application.DTOs.FileDTOs;
+
 namespace Application.DTOs.OrderDTOs
 {
     public class OrderResponseDTO
@@ -27,5 +29,8 @@ namespace Application.DTOs.OrderDTOs
 
         public int DropoffNodeId { get; set; }
         public string DropoffNodeName { get; set; }
+
+        // Collection of order images
+        public List<FileResponseDTO>? Images { get; set; }
     }
 }

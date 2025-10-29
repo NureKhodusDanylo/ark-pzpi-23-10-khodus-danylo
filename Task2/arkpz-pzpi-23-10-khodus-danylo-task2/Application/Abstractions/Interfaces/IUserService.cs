@@ -11,5 +11,6 @@ namespace Application.Abstractions.Interfaces
         Task<UserProfileDTO?> GetProfileAsync(int userId);
         Task<NodeResponseDTO?> GetMyNodeAsync(int userId);
         Task<NodeResponseDTO> UpdateMyNodeAsync(int userId, UpdateMyNodeDTO updateDto);
+        Task<UserProfileDTO> UpdateProfileAsync(int userId, UpdateUserProfileDTO updateDto);
     }
 }

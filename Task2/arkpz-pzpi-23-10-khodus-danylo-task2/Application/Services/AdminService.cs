@@ -113,14 +113,14 @@ namespace Application.Services
                 foreach (var path in possiblePaths)
                 {
                     var fullPath = Path.GetFullPath(path);
-                    if (File.Exists(fullPath))
+                    if (System.IO.File.Exists(fullPath))
                     {
                         sourceDbPath = fullPath;
                         break;
                     }
                 }
 
-                if (sourceDbPath == null || !File.Exists(sourceDbPath))
+                if (sourceDbPath == null || !System.IO.File.Exists(sourceDbPath))
                 {
                     throw new FileNotFoundException($"Database file not found. Tried paths: {string.Join(", ", possiblePaths.Select(Path.GetFullPath))}");
                 }
@@ -133,12 +133,12 @@ namespace Application.Services
                 Directory.CreateDirectory(backupPath);
 
                 // Copy database file
-                File.Copy(sourceDbPath, fullBackupPath, overwrite: true);
+                System.IO.File.Copy(sourceDbPath, fullBackupPath, overwrite: true);
 
                 // Also export delivery history as JSON
                 string historyJson = await ExportDeliveryHistoryAsync();
                 string jsonBackupPath = Path.Combine(backupPath, $"DeliveryHistory_{timestamp}.json");
-                await File.WriteAllTextAsync(jsonBackupPath, historyJson);
+                await System.IO.File.WriteAllTextAsync(jsonBackupPath, historyJson);
 
                 return true;
             }
