@@ -1,6 +1,7 @@
 using Application.Abstractions.Interfaces;
 using Application.DTOs.UserDTOs;
 using Application.DTOs.NodeDTOs;
+using Application.DTOs.FileDTOs;
 using Entities.Interfaces;
 
 namespace Application.Services
@@ -10,15 +11,18 @@ namespace Application.Services
         private readonly IUserRepository _userRepository;
         private readonly INodeRepository _nodeRepository;
         private readonly IPasswordHasher _passwordHasher;
+        private readonly IFileService _fileService;
 
         public UserService(
             IUserRepository userRepository,
             INodeRepository nodeRepository,
-            IPasswordHasher passwordHasher)
+            IPasswordHasher passwordHasher,
+            IFileService fileService)
         {
             _userRepository = userRepository;
             _nodeRepository = nodeRepository;
             _passwordHasher = passwordHasher;
+            _fileService = fileService;
         }
 
         private string? GetProfilePhotoUrl(int userId, bool hasPhoto)
@@ -242,6 +246,83 @@ namespace Application.Services
                 Latitude = user.PersonalNode?.Latitude,
                 Longitude = user.PersonalNode?.Longitude
             };
+        }
+
+        public async Task<UserProfileDTO> UpdateProfileWithPhotoAsync(int userId, UpdateUserProfileDTO updateDto, FileUploadDTO? profilePhoto, string contentRootPath)
+        {
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null)
+            {
+                throw new ArgumentException("User not found");
+            }
+
+            // Update basic profile info
+            if (!string.IsNullOrWhiteSpace(updateDto.UserName))
+            {
+                user.UserName = updateDto.UserName;
+            }
+
+            if (!string.IsNullOrWhiteSpace(updateDto.PhoneNumber))
+            {
+                user.PhoneNumber = updateDto.PhoneNumber;
+            }
+
+            if (!string.IsNullOrWhiteSpace(updateDto.Password))
+            {
+                user.PasswordHash = _passwordHasher.Hash(updateDto.Password);
+            }
+
+            await _userRepository.UpdateAsync(user);
+            await _userRepository.SaveChangesAsync();
+
+            // Handle profile photo upload if provided
+            if (profilePhoto != null)
+            {
+                var photoDto = await _fileService.UploadProfilePhotoAsync(userId, profilePhoto, contentRootPath);
+                // Photo URL will be updated after successful upload
+            }
+
+            // Reload user to get updated photo reference
+            user = await _userRepository.GetByIdAsync(userId);
+
+            return new UserProfileDTO
+            {
+                Id = user.Id,
+                UserName = user.UserName,
+                Email = user.Email,
+                GoogleId = user.GoogleId,
+                PhoneNumber = user.PhoneNumber,
+                Role = user.Role?.ToString(),
+                SentOrdersCount = user.SentOrders?.Count ?? 0,
+                ReceivedOrdersCount = user.ReceivedOrders?.Count ?? 0,
+                ProfilePhotoUrl = GetProfilePhotoUrl(user.Id, user.ProfilePhotoId.HasValue),
+                PersonalNodeId = user.PersonalNodeId,
+                Address = user.PersonalNode?.Name,
+                Latitude = user.PersonalNode?.Latitude,
+                Longitude = user.PersonalNode?.Longitude
+            };
+        }
+
+        public async Task<FileResponseDTO?> GetProfilePhotoAsync(int userId)
+        {
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null || !user.ProfilePhotoId.HasValue)
+            {
+                return null;
+            }
+
+            return await _fileService.GetFileByIdAsync(user.ProfilePhotoId.Value);
+        }
+
+        public async Task<byte[]?> GetProfilePhotoContentAsync(int userId, string contentRootPath)
+        {
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null || !user.ProfilePhotoId.HasValue)
+            {
+                return null;
+            }
+
+            return await _fileService.GetFileContentAsync(user.ProfilePhotoId.Value, contentRootPath);
         }
     }
 }

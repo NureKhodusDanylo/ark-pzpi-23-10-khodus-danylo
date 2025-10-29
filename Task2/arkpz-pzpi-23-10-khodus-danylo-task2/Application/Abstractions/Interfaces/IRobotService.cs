@@ -12,6 +12,7 @@ namespace Application.Abstractions.Interfaces
         Task<IEnumerable<RobotResponseDTO>> GetAvailableRobotsAsync();
         Task<bool> UpdateRobotAsync(UpdateRobotDTO robotDto);
         Task<bool> DeleteRobotAsync(int robotId);
+        Task<RobotResponseDTO?> UpdateRobotStatusAsync(int robotId, RobotStatusUpdateDTO statusUpdate);
 
         // IoT Device Authentication
         Task<(bool Success, int? RobotId, string? ErrorMessage)> RegisterRobotAsync(RobotRegisterDTO registerDto);

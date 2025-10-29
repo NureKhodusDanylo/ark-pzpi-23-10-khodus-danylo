@@ -163,6 +163,33 @@ namespace Application.Services
             return (true, robot.Id, null);
         }
 
+        public async Task<RobotResponseDTO?> UpdateRobotStatusAsync(int robotId, RobotStatusUpdateDTO statusUpdate)
+        {
+            var robot = await _robotRepository.GetByIdAsync(robotId);
+            if (robot == null)
+            {
+                return null;
+            }
+
+            // Validate and parse status
+            if (!Enum.TryParse<RobotStatus>(statusUpdate.Status, true, out var newStatus))
+            {
+                throw new ArgumentException("Invalid status. Must be: Idle, Delivering, Charging, or Maintenance");
+            }
+
+            // Update robot status and location
+            robot.Status = newStatus;
+            robot.BatteryLevel = statusUpdate.BatteryLevel;
+            robot.CurrentNodeId = statusUpdate.CurrentNodeId;
+            robot.CurrentLatitude = statusUpdate.CurrentLatitude;
+            robot.CurrentLongitude = statusUpdate.CurrentLongitude;
+            robot.TargetNodeId = statusUpdate.TargetNodeId;
+
+            await _robotRepository.UpdateAsync(robot);
+
+            return MapToResponseDTO(robot);
+        }
+
         private static RobotResponseDTO MapToResponseDTO(Robot robot)
         {
             return new RobotResponseDTO

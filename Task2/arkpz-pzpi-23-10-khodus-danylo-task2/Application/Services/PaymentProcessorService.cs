@@ -4,13 +4,13 @@ using Application.Services.PaymentServices;
 
 namespace Application.Services;
 
-public class PaymentProcessor
+public class PaymentProcessorService : IPaymentProcessorService
 {
     private readonly IPaymentService _payPalService;
     private readonly IPaymentService _googlePayService;
     private readonly IPaymentService _stripeService;
 
-    public PaymentProcessor(
+    public PaymentProcessorService(
         PayPalPaymentService payPalService,
         GooglePayPaymentService googlePayService,
         StripePaymentService stripeService)

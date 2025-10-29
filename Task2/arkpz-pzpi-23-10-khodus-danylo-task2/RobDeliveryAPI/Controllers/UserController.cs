@@ -2,10 +2,9 @@
 using Application.DTOs.UserDTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RobDeliveryAPI.Extensions;
 using System.Security.Claims;
 using System.Threading.Tasks;
-using Entities.Interfaces;
-using FileEntity = Entities.Models.File;
 
 namespace RobDeliveryAPI.Controllers
 {
@@ -15,19 +14,13 @@ namespace RobDeliveryAPI.Controllers
     public class UserController : ControllerBase
     {
         private readonly IUserService _userService;
-        private readonly IFileRepository _fileRepository;
-        private readonly IUserRepository _userRepository;
         private readonly IWebHostEnvironment _environment;
 
         public UserController(
             IUserService userService,
-            IFileRepository fileRepository,
-            IUserRepository userRepository,
             IWebHostEnvironment environment)
         {
             _userService = userService;
-            _fileRepository = fileRepository;
-            _userRepository = userRepository;
             _environment = environment;
         }
 
@@ -73,25 +66,18 @@ namespace RobDeliveryAPI.Controllers
 
             try
             {
-                var user = await _userRepository.GetByIdAsync(userId);
-                if (user == null || !user.ProfilePhotoId.HasValue)
-                {
-                    return NotFound(new { error = "Profile photo not found" });
-                }
-
-                var photo = await _fileRepository.GetByIdAsync(user.ProfilePhotoId.Value);
+                var photo = await _userService.GetProfilePhotoAsync(userId);
                 if (photo == null)
                 {
                     return NotFound(new { error = "Profile photo not found" });
                 }
 
-                var filePath = Path.Combine(_environment.ContentRootPath, photo.FilePath.TrimStart('/'));
-                if (!System.IO.File.Exists(filePath))
+                var fileBytes = await _userService.GetProfilePhotoContentAsync(userId, _environment.ContentRootPath);
+                if (fileBytes == null)
                 {
                     return NotFound(new { error = "Profile photo file not found on disk" });
                 }
 
-                var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
                 return File(fileBytes, photo.ContentType, photo.FileName);
             }
             catch (Exception ex)
@@ -109,25 +95,18 @@ namespace RobDeliveryAPI.Controllers
         {
             try
             {
-                var user = await _userRepository.GetByIdAsync(userId);
-                if (user == null || !user.ProfilePhotoId.HasValue)
-                {
-                    return NotFound(new { error = "Profile photo not found" });
-                }
-
-                var photo = await _fileRepository.GetByIdAsync(user.ProfilePhotoId.Value);
+                var photo = await _userService.GetProfilePhotoAsync(userId);
                 if (photo == null)
                 {
                     return NotFound(new { error = "Profile photo not found" });
                 }
 
-                var filePath = Path.Combine(_environment.ContentRootPath, photo.FilePath.TrimStart('/'));
-                if (!System.IO.File.Exists(filePath))
+                var fileBytes = await _userService.GetProfilePhotoContentAsync(userId, _environment.ContentRootPath);
+                if (fileBytes == null)
                 {
                     return NotFound(new { error = "Profile photo file not found on disk" });
                 }
 
-                var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
                 return File(fileBytes, photo.ContentType, photo.FileName);
             }
             catch (Exception ex)
@@ -246,7 +225,6 @@ namespace RobDeliveryAPI.Controllers
 
             try
             {
-                // Update basic profile info
                 var updateDto = new UpdateUserProfileDTO
                 {
                     UserName = userName,
@@ -254,91 +232,13 @@ namespace RobDeliveryAPI.Controllers
                     Password = password
                 };
 
-                var updatedProfile = await _userService.UpdateProfileAsync(userId, updateDto);
-
-                // Handle profile photo upload if provided
-                if (profilePhoto != null)
-                {
-                    var user = await _userRepository.GetByIdAsync(userId);
-                    if (user == null)
-                    {
-                        return NotFound(new { error = "User not found" });
-                    }
-
-                    // Validate file type and size
-                    var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" };
-                    const long maxFileSize = 5 * 1024 * 1024; // 5MB
-
-                    var extension = Path.GetExtension(profilePhoto.FileName).ToLowerInvariant();
-                    if (!allowedExtensions.Contains(extension))
-                    {
-                        return BadRequest(new { error = $"Invalid file extension. Allowed: {string.Join(", ", allowedExtensions)}" });
-                    }
-
-                    if (profilePhoto.Length > maxFileSize)
-                    {
-                        return BadRequest(new { error = "File exceeds maximum size of 5MB" });
-                    }
-
-                    // Delete old profile photo if exists
-                    if (user.ProfilePhotoId.HasValue)
-                    {
-                        var oldPhoto = await _fileRepository.GetByIdAsync(user.ProfilePhotoId.Value);
-                        if (oldPhoto != null)
-                        {
-                            // Delete file from disk
-                            var oldFilePath = Path.Combine(_environment.ContentRootPath, oldPhoto.FilePath.TrimStart('/'));
-                            if (System.IO.File.Exists(oldFilePath))
-                            {
-                                System.IO.File.Delete(oldFilePath);
-                            }
-                            await _fileRepository.DeleteAsync(oldPhoto.Id);
-                            await _fileRepository.SaveChangesAsync();
-                        }
-                    }
-
-                    // Create upload directory if it doesn't exist
-                    var uploadsPath = Path.Combine(_environment.ContentRootPath, "Uploads", "Profiles");
-                    Directory.CreateDirectory(uploadsPath);
-
-                    // Generate unique filename
-                    var uniqueFileName = $"{userId}_{Guid.NewGuid()}{extension}";
-                    var filePath = Path.Combine(uploadsPath, uniqueFileName);
-
-                    // Save file to disk
-                    using (var stream = new FileStream(filePath, FileMode.Create))
-                    {
-                        await profilePhoto.CopyToAsync(stream);
-                    }
-
-                    // Create file entity
-                    var fileEntity = new FileEntity
-                    {
-                        FileName = profilePhoto.FileName,
-                        FilePath = $"/Uploads/Profiles/{uniqueFileName}",
-                        ContentType = profilePhoto.ContentType,
-                        FileSize = profilePhoto.Length,
-                        UserId = userId,
-                        UploadedAt = DateTime.UtcNow
-                    };
-
-                    await _fileRepository.AddAsync(fileEntity);
-                    await _fileRepository.SaveChangesAsync();
-
-                    // Update user's profile photo reference
-                    user.ProfilePhotoId = fileEntity.Id;
-                    await _userRepository.UpdateAsync(user);
-                    await _userRepository.SaveChangesAsync();
-
-                    // Update the profile DTO with new photo URL
-                    updatedProfile.ProfilePhotoUrl = fileEntity.FilePath;
-                }
+                var updatedProfile = await _userService.UpdateProfileWithPhotoAsync(userId, updateDto, profilePhoto?.ToFileUploadDTO(), _environment.ContentRootPath);
 
                 return Ok(new { message = "Profile updated successfully", profile = updatedProfile });
             }
             catch (ArgumentException ex)
             {
-                return NotFound(new { error = ex.Message });
+                return BadRequest(new { error = ex.Message });
             }
             catch (Exception ex)
             {

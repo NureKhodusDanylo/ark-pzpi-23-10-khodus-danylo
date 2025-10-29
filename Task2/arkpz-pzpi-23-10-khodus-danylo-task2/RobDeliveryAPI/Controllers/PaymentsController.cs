@@ -1,5 +1,5 @@
+using Application.Abstractions.Interfaces;
 using Application.DTOs.PaymentDTOs;
-using Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,11 +10,11 @@ namespace RobDeliveryAPI.Controllers;
 [Authorize]
 public class PaymentsController : ControllerBase
 {
-    private readonly PaymentProcessor _paymentProcessor;
+    private readonly IPaymentProcessorService _paymentProcessorService;
 
-    public PaymentsController(PaymentProcessor paymentProcessor)
+    public PaymentsController(IPaymentProcessorService paymentProcessorService)
     {
-        _paymentProcessor = paymentProcessor;
+        _paymentProcessorService = paymentProcessorService;
     }
 
     /// <summary>
@@ -39,7 +39,7 @@ public class PaymentsController : ControllerBase
                 });
             }
 
-            var result = await _paymentProcessor.ProcessPaymentAsync(request);
+            var result = await _paymentProcessorService.ProcessPaymentAsync(request);
 
             if (result.Success)
             {
@@ -91,7 +91,7 @@ public class PaymentsController : ControllerBase
                 return BadRequest(new { success = false, message = "Refund amount must be greater than zero" });
             }
 
-            var result = await _paymentProcessor.RefundPaymentAsync(
+            var result = await _paymentProcessorService.RefundPaymentAsync(
                 request.PaymentMethod,
                 request.TransactionId,
                 request.Amount

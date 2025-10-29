@@ -30,26 +30,32 @@ namespace RobDeliveryAPI
             builder.Services.AddDbContext<MyDbContext>(options =>
                 options.UseSqlite(connectionString));
 
-            builder.Services.AddScoped<IAuthorizationService, AuthorizationService>();
+            // Repositories
             builder.Services.AddScoped<IUserRepository, UserRepository>();
+            builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+            builder.Services.AddScoped<INodeRepository, NodeRepository>();
+            builder.Services.AddScoped<IRobotRepository, RobotRepository>();
+            builder.Services.AddScoped<IFileRepository, FileRepository>();
+
+            // Services
+            builder.Services.AddScoped<IAuthorizationService, AuthorizationService>();
             builder.Services.AddScoped<IUserService, UserService>();
-            builder.Services.AddScoped<IPasswordHasher, Sha256PasswordHasher>();
-            builder.Services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();
             builder.Services.AddScoped<ITokenService, BaseTokenService>();
             builder.Services.AddScoped<IOrderService, OrderService>();
-            builder.Services.AddScoped<IOrderRepository, OrderRepository>();
             builder.Services.AddScoped<INodeService, NodeService>();
-            builder.Services.AddScoped<INodeRepository, NodeRepository>();
             builder.Services.AddScoped<IRobotService, RobotService>();
-            builder.Services.AddScoped<IRobotRepository, RobotRepository>();
             builder.Services.AddScoped<IAdminService, AdminService>();
-            builder.Services.AddScoped<IFileRepository, FileRepository>();
+            builder.Services.AddScoped<IFileService, FileService>();
+
+            // Utilities
+            builder.Services.AddScoped<IPasswordHasher, Sha256PasswordHasher>();
+            builder.Services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();
 
             // Payment services
             builder.Services.AddScoped<PayPalPaymentService>();
             builder.Services.AddScoped<GooglePayPaymentService>();
             builder.Services.AddScoped<StripePaymentService>();
-            builder.Services.AddScoped<PaymentProcessor>();
+            builder.Services.AddScoped<IPaymentProcessorService, PaymentProcessorService>();
 
             // Add HttpContextAccessor for accessing HTTP context in services
             builder.Services.AddHttpContextAccessor();

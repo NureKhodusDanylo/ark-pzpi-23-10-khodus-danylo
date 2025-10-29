@@ -1,6 +1,5 @@
 using Application.Abstractions.Interfaces;
 using Application.DTOs.RobotDTOs;
-using Entities.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -13,12 +12,10 @@ namespace RobDeliveryAPI.Controllers
     public class RobotController : ControllerBase
     {
         private readonly IRobotService _robotService;
-        private readonly IRobotRepository _robotRepository;
 
-        public RobotController(IRobotService robotService, IRobotRepository robotRepository)
+        public RobotController(IRobotService robotService)
         {
             _robotService = robotService;
-            _robotRepository = robotRepository;
         }
 
         [HttpPost]
@@ -135,39 +132,23 @@ namespace RobDeliveryAPI.Controllers
                     return Unauthorized(new { error = "Invalid robot token" });
                 }
 
-                // Get robot from database
-                var robot = await _robotRepository.GetByIdAsync(robotId);
+                // Update robot status through service
+                var robot = await _robotService.UpdateRobotStatusAsync(robotId, statusUpdate);
                 if (robot == null)
                 {
                     return NotFound(new { error = "Robot not found" });
                 }
 
-                // Validate and parse status
-                if (!Enum.TryParse<RobotStatus>(statusUpdate.Status, true, out var newStatus))
-                {
-                    return BadRequest(new { error = "Invalid status. Must be: Idle, Delivering, Charging, or Maintenance" });
-                }
-
-                // Update robot status and location
-                robot.Status = newStatus;
-                robot.BatteryLevel = statusUpdate.BatteryLevel;
-                robot.CurrentNodeId = statusUpdate.CurrentNodeId;
-                robot.CurrentLatitude = statusUpdate.CurrentLatitude;
-                robot.CurrentLongitude = statusUpdate.CurrentLongitude;
-                robot.TargetNodeId = statusUpdate.TargetNodeId;
-
-                await _robotRepository.UpdateAsync(robot);
-
                 return Ok(new
                 {
                     message = "Robot status updated successfully",
                     robotId = robot.Id,
-                    status = robot.Status.ToString(),
+                    status = robot.StatusName,
                     batteryLevel = robot.BatteryLevel,
                     currentNodeId = robot.CurrentNodeId,
-                    targetNodeId = robot.TargetNodeId,
-                    coordinates = robot.CurrentLatitude != null && robot.CurrentLongitude != null
-                        ? new { latitude = robot.CurrentLatitude, longitude = robot.CurrentLongitude }
+                    targetNodeId = statusUpdate.TargetNodeId,
+                    coordinates = statusUpdate.CurrentLatitude != null && statusUpdate.CurrentLongitude != null
+                        ? new { latitude = statusUpdate.CurrentLatitude, longitude = statusUpdate.CurrentLongitude }
                         : null
                 });
             }
