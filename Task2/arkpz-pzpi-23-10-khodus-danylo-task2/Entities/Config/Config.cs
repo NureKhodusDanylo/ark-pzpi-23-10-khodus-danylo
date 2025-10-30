@@ -11,5 +11,6 @@ namespace Entities.Config
         public ConnectionStrings ConnectionStrings { get; set; }
         public Authentication Authentication { get; set; }
         public JwtSettings Jwt { get; set; }
+        public PaymentSettings Payment { get; set; } = new();
     }
 }
