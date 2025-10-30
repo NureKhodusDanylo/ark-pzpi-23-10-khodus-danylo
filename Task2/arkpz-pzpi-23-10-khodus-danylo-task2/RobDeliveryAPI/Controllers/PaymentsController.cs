@@ -1,7 +1,11 @@
 using Application.Abstractions.Interfaces;
 using Application.DTOs.PaymentDTOs;
+using Application.DTOs.OrderDTOs;
+using Entities.Interfaces;
+using Entities.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace RobDeliveryAPI.Controllers;
 
@@ -11,10 +15,27 @@ namespace RobDeliveryAPI.Controllers;
 public class PaymentsController : ControllerBase
 {
     private readonly IPaymentProcessorService _paymentProcessorService;
+    private readonly IOrderRepository _orderRepository;
 
-    public PaymentsController(IPaymentProcessorService paymentProcessorService)
+    public PaymentsController(
+        IPaymentProcessorService paymentProcessorService,
+        IOrderRepository orderRepository)
     {
         _paymentProcessorService = paymentProcessorService;
+        _orderRepository = orderRepository;
+    }
+
+    /// <summary>
+    /// Get authenticated user ID from JWT token
+    /// </summary>
+    private int GetAuthenticatedUserId()
+    {
+        var userIdClaim = User.FindFirst("Id") ?? User.FindFirst(ClaimTypes.NameIdentifier);
+        if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
+        {
+            throw new UnauthorizedAccessException("User ID not found in token");
+        }
+        return userId;
     }
 
     /// <summary>
@@ -74,6 +95,163 @@ public class PaymentsController : ControllerBase
                 Currency = request.Currency,
                 ProcessedAt = DateTime.UtcNow,
                 ErrorMessage = $"Internal server error: {ex.Message}"
+            });
+        }
+    }
+
+    /// <summary>
+    /// Pay for order product and/or delivery
+    /// </summary>
+    [HttpPost("pay-order")]
+    public async Task<ActionResult<PaymentResultDTO>> PayOrder([FromBody] PayOrderDTO paymentDto)
+    {
+        try
+        {
+            int userId = GetAuthenticatedUserId();
+
+            // Validate that at least one payment option is selected
+            if (!paymentDto.PayProduct && !paymentDto.PayDelivery)
+            {
+                return BadRequest(new PaymentResultDTO
+                {
+                    Success = false,
+                    ErrorMessage = "At least one payment option (PayProduct or PayDelivery) must be selected",
+                    ProcessedAt = DateTime.UtcNow
+                });
+            }
+
+            // Get order
+            var order = await _orderRepository.GetByIdAsync(paymentDto.OrderId);
+            if (order == null)
+            {
+                return NotFound(new PaymentResultDTO
+                {
+                    Success = false,
+                    ErrorMessage = $"Order with ID {paymentDto.OrderId} not found",
+                    ProcessedAt = DateTime.UtcNow
+                });
+            }
+
+            // Validate user authorization
+            bool isAuthorized = false;
+            if (paymentDto.PayProduct && order.SenderId == userId)
+            {
+                isAuthorized = true; // Sender can pay for product
+            }
+            if (paymentDto.PayDelivery)
+            {
+                // Check who should pay for delivery
+                if ((order.DeliveryPayer == DeliveryPayer.Sender && order.SenderId == userId) ||
+                    (order.DeliveryPayer == DeliveryPayer.Recipient && order.RecipientId == userId))
+                {
+                    isAuthorized = true;
+                }
+            }
+
+            if (!isAuthorized)
+            {
+                return StatusCode(403, new PaymentResultDTO
+                {
+                    Success = false,
+                    ErrorMessage = "You are not authorized to make this payment",
+                    ProcessedAt = DateTime.UtcNow
+                });
+            }
+
+            // Calculate total amount to pay
+            decimal totalAmount = 0;
+            bool willPayProduct = false;
+            bool willPayDelivery = false;
+
+            if (paymentDto.PayProduct && !order.IsProductPaid)
+            {
+                totalAmount += order.ProductPrice;
+                willPayProduct = true;
+            }
+            if (paymentDto.PayDelivery && !order.IsDeliveryPaid)
+            {
+                totalAmount += order.DeliveryPrice;
+                willPayDelivery = true;
+            }
+
+            // Check if there's anything to pay
+            if (totalAmount == 0)
+            {
+                return BadRequest(new PaymentResultDTO
+                {
+                    Success = false,
+                    ErrorMessage = "The selected items are already paid",
+                    OrderId = order.Id,
+                    ProductPaid = order.IsProductPaid,
+                    DeliveryPaid = order.IsDeliveryPaid,
+                    ProcessedAt = DateTime.UtcNow
+                });
+            }
+
+            // Process payment through payment processor
+            var paymentRequest = new PaymentRequestDTO
+            {
+                Amount = totalAmount,
+                Currency = "UAH",
+                OrderId = order.Id,
+                PaymentMethod = paymentDto.PaymentMethod
+            };
+
+            var paymentResult = await _paymentProcessorService.ProcessPaymentAsync(paymentRequest);
+
+            if (!paymentResult.Success)
+            {
+                return BadRequest(new PaymentResultDTO
+                {
+                    Success = false,
+                    ErrorMessage = $"Payment failed: {paymentResult.ErrorMessage}",
+                    OrderId = order.Id,
+                    ProcessedAt = DateTime.UtcNow
+                });
+            }
+
+            // Update order payment status
+            if (willPayProduct)
+            {
+                order.IsProductPaid = true;
+            }
+            if (willPayDelivery)
+            {
+                order.IsDeliveryPaid = true;
+            }
+
+            await _orderRepository.UpdateAsync(order);
+
+            // Return success result
+            return Ok(new PaymentResultDTO
+            {
+                Success = true,
+                TransactionId = paymentResult.TransactionId,
+                PaymentMethod = paymentResult.PaymentMethod,
+                Amount = totalAmount,
+                Currency = "UAH",
+                ProcessedAt = paymentResult.ProcessedAt,
+                OrderId = order.Id,
+                ProductPaid = order.IsProductPaid,
+                DeliveryPaid = order.IsDeliveryPaid
+            });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new PaymentResultDTO
+            {
+                Success = false,
+                ErrorMessage = ex.Message,
+                ProcessedAt = DateTime.UtcNow
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new PaymentResultDTO
+            {
+                Success = false,
+                ErrorMessage = $"An error occurred while processing payment: {ex.Message}",
+                ProcessedAt = DateTime.UtcNow
             });
         }
     }

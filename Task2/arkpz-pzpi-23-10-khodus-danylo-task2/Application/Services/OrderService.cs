@@ -12,7 +12,10 @@ namespace Application.Services
         private readonly IUserRepository _userRepository;
         private readonly IRobotRepository _robotRepository;
 
-        public OrderService(IOrderRepository orderRepository, IUserRepository userRepository, IRobotRepository robotRepository)
+        public OrderService(
+            IOrderRepository orderRepository,
+            IUserRepository userRepository,
+            IRobotRepository robotRepository)
         {
             _orderRepository = orderRepository;
             _userRepository = userRepository;
@@ -77,6 +80,8 @@ namespace Application.Services
                 DeliveryPrice = deliveryPrice,
                 ProductPrice = orderDto.ProductPrice,
                 IsProductPaid = orderDto.IsProductPaid,
+                DeliveryPayer = orderDto.DeliveryPayer,
+                IsDeliveryPaid = false,
                 Status = OrderStatus.Pending,
                 SenderId = senderId,
                 RecipientId = orderDto.RecipientId,
@@ -280,6 +285,9 @@ namespace Application.Services
                 DeliveryPrice = order.DeliveryPrice,
                 ProductPrice = order.ProductPrice,
                 IsProductPaid = order.IsProductPaid,
+                DeliveryPayer = order.DeliveryPayer,
+                DeliveryPayerName = order.DeliveryPayer.ToString(),
+                IsDeliveryPaid = order.IsDeliveryPaid,
                 Status = order.Status,
                 CreatedAt = order.CreatedAt,
                 CompletedAt = order.CompletedAt,

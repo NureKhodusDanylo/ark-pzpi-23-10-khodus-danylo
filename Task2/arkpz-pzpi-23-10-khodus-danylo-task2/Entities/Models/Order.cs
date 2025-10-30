@@ -14,6 +14,10 @@ namespace Entities.Models
         public decimal ProductPrice { get; set; }   // Price of the product (for insurance/compensation)
         public bool IsProductPaid { get; set; }     // Whether user has paid for the product
 
+        // Delivery payment fields
+        public DeliveryPayer DeliveryPayer { get; set; } = DeliveryPayer.Sender;  // Who pays for delivery
+        public bool IsDeliveryPaid { get; set; } = false;  // Whether delivery has been paid
+
         public OrderStatus Status { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? CompletedAt { get; set; }

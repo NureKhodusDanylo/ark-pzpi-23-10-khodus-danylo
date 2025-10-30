@@ -51,7 +51,8 @@ namespace RobDeliveryAPI.Controllers
             [FromForm] decimal productPrice,
             [FromForm] bool isProductPaid,
             [FromForm] int recipientId,
-            IFormFileCollection? files)
+            [FromForm] int deliveryPayer,
+            IFormFileCollection? files = null)
         {
             try
             {
@@ -65,7 +66,8 @@ namespace RobDeliveryAPI.Controllers
                     Weight = weight,
                     ProductPrice = productPrice,
                     IsProductPaid = isProductPaid,
-                    RecipientId = recipientId
+                    RecipientId = recipientId,
+                    DeliveryPayer = (Entities.Models.DeliveryPayer)deliveryPayer
                 };
 
                 // Create order

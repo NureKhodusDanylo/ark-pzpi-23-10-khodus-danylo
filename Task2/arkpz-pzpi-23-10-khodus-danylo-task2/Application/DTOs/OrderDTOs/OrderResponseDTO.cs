@@ -1,4 +1,5 @@
 using Application.DTOs.FileDTOs;
+using Entities.Models;
 
 namespace Application.DTOs.OrderDTOs
 {
@@ -11,6 +12,12 @@ namespace Application.DTOs.OrderDTOs
         public decimal DeliveryPrice { get; set; }
         public decimal ProductPrice { get; set; }
         public bool IsProductPaid { get; set; }
+
+        // Delivery payment fields
+        public DeliveryPayer DeliveryPayer { get; set; }
+        public string DeliveryPayerName { get; set; }  // "Sender" or "Recipient" for display
+        public bool IsDeliveryPaid { get; set; }
+
         public OrderStatus Status { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? CompletedAt { get; set; }

@@ -9,4 +9,9 @@ public class PaymentResultDTO
     public string Currency { get; set; } = "UAH";
     public DateTime ProcessedAt { get; set; }
     public string? ErrorMessage { get; set; }
+
+    // Order payment details
+    public int? OrderId { get; set; }
+    public bool ProductPaid { get; set; }
+    public bool DeliveryPaid { get; set; }
 }
