@@ -116,6 +116,16 @@ namespace Application.Services
             if (await _robotRepository.SerialNumberExistsAsync(registerDto.SerialNumber))
                 return (false, null, "Robot with this serial number already exists");
 
+            // Validate battery characteristics
+            if (registerDto.BatteryCapacityJoules.HasValue && registerDto.BatteryCapacityJoules.Value <= 0)
+                return (false, null, "Battery capacity must be greater than 0");
+            if (registerDto.EnergyConsumptionPerMeterJoules.HasValue && registerDto.EnergyConsumptionPerMeterJoules.Value <= 0)
+                return (false, null, "Energy consumption must be greater than 0");
+
+            // Validate port range
+            if (registerDto.Port.HasValue && (registerDto.Port.Value < 1 || registerDto.Port.Value > 65535))
+                return (false, null, "Port must be between 1 and 65535");
+
             // Hash the access key
             var accessKeyHash = _passwordHasher.Hash(registerDto.AccessKey);
 
@@ -128,7 +138,18 @@ namespace Application.Services
                 Status = RobotStatus.Idle,
                 BatteryLevel = 100.0,
                 SerialNumber = registerDto.SerialNumber,
-                AccessKeyHash = accessKeyHash
+                AccessKeyHash = accessKeyHash,
+
+                // Battery characteristics (use provided values or defaults)
+                BatteryCapacityJoules = registerDto.BatteryCapacityJoules ?? 360000, // Default 100Wh
+                EnergyConsumptionPerMeterJoules = registerDto.EnergyConsumptionPerMeterJoules ?? 36, // Default 36J/m (10km range)
+
+                // IoT Connection
+                IpAddress = registerDto.IpAddress,
+                Port = registerDto.Port ?? 80, // Default HTTP port
+
+                // Initial location
+                CurrentNodeId = registerDto.CurrentNodeId
             };
 
             // Save to database

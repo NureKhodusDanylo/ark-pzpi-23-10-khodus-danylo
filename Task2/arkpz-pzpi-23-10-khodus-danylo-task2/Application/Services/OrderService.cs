@@ -12,17 +12,20 @@ namespace Application.Services
         private readonly IUserRepository _userRepository;
         private readonly IRobotRepository _robotRepository;
         private readonly INodeRepository _nodeRepository;
+        private readonly IDroneConnectionService _droneConnectionService;
 
         public OrderService(
             IOrderRepository orderRepository,
             IUserRepository userRepository,
             IRobotRepository robotRepository,
-            INodeRepository nodeRepository)
+            INodeRepository nodeRepository,
+            IDroneConnectionService droneConnectionService)
         {
             _orderRepository = orderRepository;
             _userRepository = userRepository;
             _robotRepository = robotRepository;
             _nodeRepository = nodeRepository;
+            _droneConnectionService = droneConnectionService;
         }
 
         public async Task<OrderResponseDTO> CreateOrderAsync(int senderId, CreateOrderDTO orderDto)
@@ -401,16 +404,110 @@ namespace Application.Services
             // Assign the optimal drone to the order
             await AssignRobotToOrderAsync(orderId, optimalDrone.Id);
 
+            // Send command to drone if IP address is configured
+            string droneMessage = "Order successfully assigned to optimal drone";
+            if (!string.IsNullOrEmpty(optimalDrone.IpAddress) && optimalDrone.Port.HasValue)
+            {
+                try
+                {
+                    // Build waypoints from route for Arduino
+                    var waypoints = BuildWaypointsFromRoute(optimalRoute, pickupNode, dropoffNode);
+
+                    // Create command packet for Arduino
+                    var droneCommand = new Application.DTOs.RobotDTOs.DroneCommandDTO
+                    {
+                        OrderId = orderId,
+                        OrderName = order.Name,
+                        PackageWeight = order.Weight,
+                        PickupNodeId = pickupNode.Id,
+                        PickupNodeName = pickupNode.Name,
+                        PickupLatitude = pickupNode.Latitude,
+                        PickupLongitude = pickupNode.Longitude,
+                        DropoffNodeId = dropoffNode.Id,
+                        DropoffNodeName = dropoffNode.Name,
+                        DropoffLatitude = dropoffNode.Latitude,
+                        DropoffLongitude = dropoffNode.Longitude,
+                        Route = waypoints,
+                        TotalDistanceMeters = minTotalDistance,
+                        EstimatedBatteryUsagePercent = optimalBatteryUsage,
+                        CommandTimestamp = DateTime.UtcNow
+                    };
+
+                    // Send command to Arduino
+                    var droneResponse = await _droneConnectionService.SendDeliveryCommandAsync(
+                        optimalDrone.IpAddress,
+                        optimalDrone.Port.Value,
+                        droneCommand
+                    );
+
+                    if (droneResponse.Success)
+                    {
+                        droneMessage = $"Order assigned and command sent to drone. Drone response: {droneResponse.Message}";
+                    }
+                    else
+                    {
+                        droneMessage = $"Order assigned but drone communication failed: {droneResponse.Message}";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    droneMessage = $"Order assigned but failed to communicate with drone: {ex.Message}";
+                }
+            }
+
             return new ExecuteOrderResponseDTO
             {
                 OrderId = orderId,
                 AssignedRobotId = optimalDrone.Id,
                 AssignedRobotName = optimalDrone.Name,
-                Message = "Order successfully assigned to optimal drone",
+                Message = droneMessage,
                 Route = optimalRoute,
                 TotalDistanceMeters = minTotalDistance,
                 EstimatedBatteryUsagePercent = optimalBatteryUsage
             };
+        }
+
+        private List<Application.DTOs.RobotDTOs.RouteWaypointDTO> BuildWaypointsFromRoute(
+            List<RouteSegmentDTO> route,
+            Node pickupNode,
+            Node dropoffNode)
+        {
+            var waypoints = new List<Application.DTOs.RobotDTOs.RouteWaypointDTO>();
+            var nodeCache = new Dictionary<string, (double lat, double lon)>
+            {
+                [pickupNode.Name] = (pickupNode.Latitude, pickupNode.Longitude),
+                [dropoffNode.Name] = (dropoffNode.Latitude, dropoffNode.Longitude)
+            };
+
+            // Build waypoints from route segments
+            foreach (var segment in route)
+            {
+                // Get coordinates for destination
+                if (!nodeCache.ContainsKey(segment.ToNodeName))
+                {
+                    // For charging stations, fetch from database (simplified - in production cache all nodes)
+                    var node = _nodeRepository.GetByTypeAsync(NodeType.ChargingStation).Result
+                        .FirstOrDefault(n => n.Name == segment.ToNodeName);
+                    if (node != null)
+                    {
+                        nodeCache[node.Name] = (node.Latitude, node.Longitude);
+                    }
+                }
+
+                if (nodeCache.TryGetValue(segment.ToNodeName, out var coords))
+                {
+                    waypoints.Add(new Application.DTOs.RobotDTOs.RouteWaypointDTO
+                    {
+                        SequenceNumber = segment.SegmentNumber,
+                        Latitude = coords.lat,
+                        Longitude = coords.lon,
+                        Action = segment.Action.ToLower(),
+                        DistanceMeters = segment.DistanceMeters
+                    });
+                }
+            }
+
+            return waypoints;
         }
 
         private async Task<(bool canComplete, List<RouteSegmentDTO> route, double totalDistance, double batteryUsage)> CalculateDroneRoute(

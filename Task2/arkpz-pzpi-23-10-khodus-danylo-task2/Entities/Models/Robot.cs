@@ -11,8 +11,20 @@ namespace Entities.Models
         public RobotStatus Status { get; set; }
         public double BatteryLevel { get; set; }
 
-        // Flight characteristics (meters per 1% battery considering weight)
-        public double MaxFlightRangeMeters { get; set; } = 10000; // Default 10km per full charge
+        // Battery characteristics (for energy-based calculations)
+        public double BatteryCapacityJoules { get; set; } = 360000; // Default 100Wh = 360000J
+        public double EnergyConsumptionPerMeterJoules { get; set; } = 36; // Default 36J per meter (10km range)
+
+        // Legacy field for backward compatibility (calculated from battery)
+        public double MaxFlightRangeMeters
+        {
+            get => BatteryCapacityJoules / EnergyConsumptionPerMeterJoules;
+            set => BatteryCapacityJoules = value * EnergyConsumptionPerMeterJoules;
+        }
+
+        // IoT Connection
+        public string? IpAddress { get; set; } // IP address for Arduino connection (e.g., "192.168.1.100")
+        public int? Port { get; set; } = 80; // Default HTTP port for Arduino web server
 
         // Authentication fields for IoT devices
         public string? SerialNumber { get; set; } // Unique identifier

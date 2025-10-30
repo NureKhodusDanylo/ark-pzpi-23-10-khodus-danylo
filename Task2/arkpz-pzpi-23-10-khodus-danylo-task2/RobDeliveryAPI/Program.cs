@@ -51,6 +51,10 @@ namespace RobDeliveryAPI
             builder.Services.AddScoped<IPasswordHasher, Sha256PasswordHasher>();
             builder.Services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();
 
+            // IoT/Drone Communication
+            builder.Services.AddHttpClient("DroneClient");
+            builder.Services.AddScoped<IDroneConnectionService, DroneConnectionService>();
+
             // Payment services
             builder.Services.AddScoped<PayPalPaymentService>();
             builder.Services.AddScoped<GooglePayPaymentService>();
