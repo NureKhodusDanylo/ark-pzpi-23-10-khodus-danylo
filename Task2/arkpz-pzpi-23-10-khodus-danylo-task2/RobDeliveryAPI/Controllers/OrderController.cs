@@ -337,5 +337,31 @@ namespace RobDeliveryAPI.Controllers
                 return StatusCode(500, new { error = "An error occurred while deleting the order", details = ex.Message });
             }
         }
+
+        /// <summary>
+        /// Execute an order - automatically find and assign optimal drone with route calculation
+        /// </summary>
+        [HttpPost("{id}/execute")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> ExecuteOrder(int id)
+        {
+            try
+            {
+                var result = await _orderService.ExecuteOrderAsync(id);
+                return Ok(result);
+            }
+            catch (ArgumentException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "An error occurred while executing the order", details = ex.Message });
+            }
+        }
     }
 }

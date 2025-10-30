@@ -50,6 +50,16 @@ namespace Infrastructure.Repository
                 .ToListAsync();
         }
 
+        public async Task<IEnumerable<Robot>> GetByTypeAndStatusAsync(RobotType type, RobotStatus status)
+        {
+            return await _context.Robots
+                .Include(r => r.CurrentNode)
+                .Include(r => r.ActiveOrders)
+                .Where(r => r.Type == type && r.Status == status)
+                .OrderByDescending(r => r.BatteryLevel)
+                .ToListAsync();
+        }
+
         public async Task<IEnumerable<Robot>> GetAvailableRobotsAsync()
         {
             return await _context.Robots

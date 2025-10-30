@@ -11,6 +11,9 @@ namespace Entities.Models
         public RobotStatus Status { get; set; }
         public double BatteryLevel { get; set; }
 
+        // Flight characteristics (meters per 1% battery considering weight)
+        public double MaxFlightRangeMeters { get; set; } = 10000; // Default 10km per full charge
+
         // Authentication fields for IoT devices
         public string? SerialNumber { get; set; } // Unique identifier
         public string? AccessKeyHash { get; set; } // Hashed access key for authentication

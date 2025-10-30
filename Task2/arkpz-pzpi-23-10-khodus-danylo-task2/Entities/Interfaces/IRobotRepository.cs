@@ -10,6 +10,7 @@ namespace Entities.Interfaces
         Task<IEnumerable<Robot>> GetAllAsync();
         Task<IEnumerable<Robot>> GetByStatusAsync(RobotStatus status);
         Task<IEnumerable<Robot>> GetByTypeAsync(RobotType type);
+        Task<IEnumerable<Robot>> GetByTypeAndStatusAsync(RobotType type, RobotStatus status);
         Task<IEnumerable<Robot>> GetAvailableRobotsAsync();
         Task UpdateAsync(Robot robot);
         Task DeleteAsync(int robotId);

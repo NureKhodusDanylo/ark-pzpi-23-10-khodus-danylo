@@ -11,15 +11,18 @@ namespace Application.Services
         private readonly IOrderRepository _orderRepository;
         private readonly IUserRepository _userRepository;
         private readonly IRobotRepository _robotRepository;
+        private readonly INodeRepository _nodeRepository;
 
         public OrderService(
             IOrderRepository orderRepository,
             IUserRepository userRepository,
-            IRobotRepository robotRepository)
+            IRobotRepository robotRepository,
+            INodeRepository nodeRepository)
         {
             _orderRepository = orderRepository;
             _userRepository = userRepository;
             _robotRepository = robotRepository;
+            _nodeRepository = nodeRepository;
         }
 
         public async Task<OrderResponseDTO> CreateOrderAsync(int senderId, CreateOrderDTO orderDto)
@@ -325,6 +328,399 @@ namespace Application.Services
                 OrderStatus.Cancelled => false, // Cannot change from cancelled
                 _ => false
             };
+        }
+
+        public async Task<ExecuteOrderResponseDTO> ExecuteOrderAsync(int orderId)
+        {
+            // Get the order
+            var order = await _orderRepository.GetByIdAsync(orderId);
+            if (order == null)
+            {
+                throw new ArgumentException($"Order with ID {orderId} not found");
+            }
+
+            // Validate order status
+            if (order.Status != OrderStatus.Pending)
+            {
+                throw new InvalidOperationException($"Cannot execute order with status {order.Status}. Only Pending orders can be executed.");
+            }
+
+            // Get pickup and dropoff nodes
+            var pickupNode = await _nodeRepository.GetByIdAsync(order.PickupNodeId);
+            var dropoffNode = await _nodeRepository.GetByIdAsync(order.DropoffNodeId);
+
+            if (pickupNode == null || dropoffNode == null)
+            {
+                throw new InvalidOperationException("Pickup or dropoff node not found");
+            }
+
+            // Get all drones on charging stations
+            var chargingDrones = await _robotRepository.GetByTypeAndStatusAsync(RobotType.Drone, RobotStatus.Charging);
+            var chargingDronesList = chargingDrones.ToList();
+
+            if (!chargingDronesList.Any())
+            {
+                throw new InvalidOperationException("No drones available on charging stations");
+            }
+
+            // Find optimal drone and route
+            Robot? optimalDrone = null;
+            List<RouteSegmentDTO> optimalRoute = null;
+            double minTotalDistance = double.MaxValue;
+            double optimalBatteryUsage = 0;
+
+            foreach (var drone in chargingDronesList)
+            {
+                if (drone.CurrentNode == null)
+                {
+                    continue; // Skip drones without current location
+                }
+
+                var (canComplete, route, totalDistance, batteryUsage) = await CalculateDroneRoute(
+                    drone,
+                    drone.CurrentNode,
+                    pickupNode,
+                    dropoffNode,
+                    order.Weight
+                );
+
+                if (canComplete && totalDistance < minTotalDistance)
+                {
+                    optimalDrone = drone;
+                    optimalRoute = route;
+                    minTotalDistance = totalDistance;
+                    optimalBatteryUsage = batteryUsage;
+                }
+            }
+
+            if (optimalDrone == null || optimalRoute == null)
+            {
+                throw new InvalidOperationException("No suitable drone found that can complete this delivery");
+            }
+
+            // Assign the optimal drone to the order
+            await AssignRobotToOrderAsync(orderId, optimalDrone.Id);
+
+            return new ExecuteOrderResponseDTO
+            {
+                OrderId = orderId,
+                AssignedRobotId = optimalDrone.Id,
+                AssignedRobotName = optimalDrone.Name,
+                Message = "Order successfully assigned to optimal drone",
+                Route = optimalRoute,
+                TotalDistanceMeters = minTotalDistance,
+                EstimatedBatteryUsagePercent = optimalBatteryUsage
+            };
+        }
+
+        private async Task<(bool canComplete, List<RouteSegmentDTO> route, double totalDistance, double batteryUsage)> CalculateDroneRoute(
+            Robot drone,
+            Node currentNode,
+            Node pickupNode,
+            Node dropoffNode,
+            double packageWeight)
+        {
+            var route = new List<RouteSegmentDTO>();
+            double totalDistance = 0;
+            int segmentNumber = 1;
+
+            // Calculate meters per 1% battery WITHOUT package weight (for empty flight to pickup)
+            double metersPerBatteryPercentEmpty = drone.MaxFlightRangeMeters / 100.0;
+
+            // Step 1: Calculate route from current position to pickup (without package)
+            var (canReachPickup, routeToPickup, distanceToPickup, batteryToPickup) = await CalculateRouteSegmentWithCharging(
+                currentNode,
+                pickupNode,
+                drone.BatteryLevel,
+                metersPerBatteryPercentEmpty,
+                segmentNumber,
+                "Travel"
+            );
+
+            if (!canReachPickup)
+            {
+                return (false, new List<RouteSegmentDTO>(), 0, 0);
+            }
+
+            route.AddRange(routeToPickup);
+            totalDistance += distanceToPickup;
+            segmentNumber += routeToPickup.Count;
+
+            // Pickup package action
+            route.Add(new RouteSegmentDTO
+            {
+                SegmentNumber = segmentNumber++,
+                FromNodeName = pickupNode.Name,
+                ToNodeName = pickupNode.Name,
+                DistanceMeters = 0,
+                Action = "PickupPackage"
+            });
+
+            // Calculate remaining battery after reaching pickup
+            double remainingBatteryAfterPickup = drone.BatteryLevel - batteryToPickup;
+            // If we charged during route, battery is 100% minus last segment usage
+            if (routeToPickup.Any(r => r.Action == "Charge"))
+            {
+                var lastChargeIndex = routeToPickup.FindLastIndex(r => r.Action == "Charge");
+                double distanceAfterLastCharge = routeToPickup.Skip(lastChargeIndex + 1).Sum(r => r.DistanceMeters);
+                remainingBatteryAfterPickup = 100 - (distanceAfterLastCharge / metersPerBatteryPercentEmpty);
+            }
+
+            // Step 2: Calculate route from pickup to dropoff WITH package weight
+            // Heavier packages reduce flight range: 1% reduction per kg, minimum 50% efficiency
+            double weightFactor = 1.0 - (packageWeight * 0.01);
+            weightFactor = Math.Max(0.5, weightFactor);
+            double metersPerBatteryPercentWithLoad = (drone.MaxFlightRangeMeters / 100.0) * weightFactor;
+
+            var (canReachDropoff, routeToDropoff, distanceToDropoff, batteryToDropoff) = await CalculateRouteSegmentWithCharging(
+                pickupNode,
+                dropoffNode,
+                remainingBatteryAfterPickup,
+                metersPerBatteryPercentWithLoad,
+                segmentNumber,
+                "Travel"
+            );
+
+            if (!canReachDropoff)
+            {
+                return (false, new List<RouteSegmentDTO>(), 0, 0);
+            }
+
+            route.AddRange(routeToDropoff);
+            totalDistance += distanceToDropoff;
+            segmentNumber += routeToDropoff.Count;
+
+            // Delivery action
+            route.Add(new RouteSegmentDTO
+            {
+                SegmentNumber = segmentNumber++,
+                FromNodeName = dropoffNode.Name,
+                ToNodeName = dropoffNode.Name,
+                DistanceMeters = 0,
+                Action = "DeliverPackage"
+            });
+
+            double totalBatteryUsage = batteryToPickup + batteryToDropoff;
+            return (true, route, totalDistance, totalBatteryUsage);
+        }
+
+        private async Task<(bool canComplete, List<RouteSegmentDTO> route, double distance, double batteryUsed)> CalculateRouteSegmentWithCharging(
+            Node fromNode,
+            Node toNode,
+            double currentBattery,
+            double metersPerBatteryPercent,
+            int startSegmentNumber,
+            string travelAction)
+        {
+            var route = new List<RouteSegmentDTO>();
+            double totalDistance = 0;
+            double totalBatteryUsed = 0;
+            int segmentNumber = startSegmentNumber;
+
+            double distanceToDestination = CalculateDistance(fromNode, toNode);
+            double requiredBattery = distanceToDestination / metersPerBatteryPercent;
+
+            // Check if can reach destination directly with safety margin
+            if (requiredBattery <= currentBattery)
+            {
+                // SAFETY CHECK: Verify drone can reach a charging station from destination
+                var nearestChargeFromDestination = await _nodeRepository.FindNearestNodeAsync(
+                    toNode.Latitude,
+                    toNode.Longitude,
+                    NodeType.ChargingStation
+                );
+
+                if (nearestChargeFromDestination != null)
+                {
+                    double distanceToNearestCharge = CalculateDistance(toNode, nearestChargeFromDestination);
+                    double batteryNeededForSafety = distanceToNearestCharge / metersPerBatteryPercent;
+                    double remainingBatteryAtDestination = currentBattery - requiredBattery;
+
+                    // If remaining battery is insufficient to reach charging station, need intermediate charge
+                    if (remainingBatteryAtDestination < batteryNeededForSafety)
+                    {
+                        // Cannot go direct - need to charge en route
+                        // Continue to charging station logic below
+                    }
+                    else
+                    {
+                        // Safe to fly direct
+                        route.Add(new RouteSegmentDTO
+                        {
+                            SegmentNumber = segmentNumber++,
+                            FromNodeName = fromNode.Name,
+                            ToNodeName = toNode.Name,
+                            DistanceMeters = distanceToDestination,
+                            Action = travelAction
+                        });
+
+                        return (true, route, distanceToDestination, requiredBattery);
+                    }
+                }
+                else
+                {
+                    // No charging stations available - risky but allow if battery sufficient
+                    // This is edge case for systems without charging infrastructure
+                    route.Add(new RouteSegmentDTO
+                    {
+                        SegmentNumber = segmentNumber++,
+                        FromNodeName = fromNode.Name,
+                        ToNodeName = toNode.Name,
+                        DistanceMeters = distanceToDestination,
+                        Action = travelAction
+                    });
+
+                    return (true, route, distanceToDestination, requiredBattery);
+                }
+            }
+
+            // Need to charge en route - find optimal charging station
+            // Get all charging stations
+            var allChargingStations = await _nodeRepository.GetByTypeAsync(NodeType.ChargingStation);
+            var chargingStationsList = allChargingStations.ToList();
+
+            if (!chargingStationsList.Any())
+            {
+                return (false, new List<RouteSegmentDTO>(), 0, 0);
+            }
+
+            // Find optimal charging station:
+            // 1. Must be reachable with current battery
+            // 2. After reaching destination from this station, must have enough battery to reach another charging station (safety)
+            // 3. Minimize total distance (from current position to station + station to destination)
+            Node? optimalStation = null;
+            double minTotalRouteDistance = double.MaxValue;
+
+            foreach (var station in chargingStationsList)
+            {
+                double distanceToStation = CalculateDistance(fromNode, station);
+                double batteryToStation = distanceToStation / metersPerBatteryPercent;
+
+                // Check if we can reach this station with current battery
+                if (batteryToStation <= currentBattery)
+                {
+                    double distanceFromStationToDestination = CalculateDistance(station, toNode);
+                    double batteryFromStationToDestination = distanceFromStationToDestination / metersPerBatteryPercent;
+
+                    // After charging to 100% at this station, check if we can:
+                    // 1. Reach destination
+                    // 2. Have enough battery left to reach a charging station from destination
+                    if (batteryFromStationToDestination <= 100)
+                    {
+                        // Find nearest charging station from destination
+                        var chargeFromDestination = await _nodeRepository.FindNearestNodeAsync(
+                            toNode.Latitude,
+                            toNode.Longitude,
+                            NodeType.ChargingStation
+                        );
+
+                        if (chargeFromDestination != null)
+                        {
+                            double distanceDestToCharge = CalculateDistance(toNode, chargeFromDestination);
+                            double batteryDestToCharge = distanceDestToCharge / metersPerBatteryPercent;
+                            double remainingBatteryAtDest = 100 - batteryFromStationToDestination;
+
+                            // Verify drone will have enough battery to reach charging station from destination
+                            if (remainingBatteryAtDest >= batteryDestToCharge)
+                            {
+                                double totalRouteDistance = distanceToStation + distanceFromStationToDestination;
+
+                                // Select station with minimum total route distance
+                                if (totalRouteDistance < minTotalRouteDistance)
+                                {
+                                    minTotalRouteDistance = totalRouteDistance;
+                                    optimalStation = station;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // No charging stations from destination - accept this station if distance is acceptable
+                            double totalRouteDistance = distanceToStation + distanceFromStationToDestination;
+                            if (totalRouteDistance < minTotalRouteDistance)
+                            {
+                                minTotalRouteDistance = totalRouteDistance;
+                                optimalStation = station;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (optimalStation == null)
+            {
+                return (false, new List<RouteSegmentDTO>(), 0, 0); // No suitable charging stations found
+            }
+
+            double distanceToOptimalStation = CalculateDistance(fromNode, optimalStation);
+            double batteryToOptimalStation = distanceToOptimalStation / metersPerBatteryPercent;
+
+            // Fly to optimal charging station
+            route.Add(new RouteSegmentDTO
+            {
+                SegmentNumber = segmentNumber++,
+                FromNodeName = fromNode.Name,
+                ToNodeName = optimalStation.Name,
+                DistanceMeters = distanceToOptimalStation,
+                Action = travelAction
+            });
+            totalDistance += distanceToOptimalStation;
+            totalBatteryUsed += batteryToOptimalStation;
+
+            // Charge
+            route.Add(new RouteSegmentDTO
+            {
+                SegmentNumber = segmentNumber++,
+                FromNodeName = optimalStation.Name,
+                ToNodeName = optimalStation.Name,
+                DistanceMeters = 0,
+                Action = "Charge"
+            });
+
+            // Recursively calculate from charging station to destination with full battery
+            var (canComplete, remainingRoute, remainingDistance, remainingBattery) = await CalculateRouteSegmentWithCharging(
+                optimalStation,
+                toNode,
+                100, // Full battery after charging
+                metersPerBatteryPercent,
+                segmentNumber,
+                travelAction
+            );
+
+            if (!canComplete)
+            {
+                return (false, new List<RouteSegmentDTO>(), 0, 0);
+            }
+
+            route.AddRange(remainingRoute);
+            totalDistance += remainingDistance;
+            totalBatteryUsed += remainingBattery;
+
+            return (true, route, totalDistance, totalBatteryUsed);
+        }
+
+        private static double CalculateDistance(Node node1, Node node2)
+        {
+            // Haversine formula for calculating distance between two points on Earth
+            const double earthRadiusMeters = 6371000; // Earth's radius in meters
+
+            double lat1Rad = DegreesToRadians(node1.Latitude);
+            double lat2Rad = DegreesToRadians(node2.Latitude);
+            double deltaLatRad = DegreesToRadians(node2.Latitude - node1.Latitude);
+            double deltaLonRad = DegreesToRadians(node2.Longitude - node1.Longitude);
+
+            double a = Math.Sin(deltaLatRad / 2) * Math.Sin(deltaLatRad / 2) +
+                      Math.Cos(lat1Rad) * Math.Cos(lat2Rad) *
+                      Math.Sin(deltaLonRad / 2) * Math.Sin(deltaLonRad / 2);
+
+            double c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+
+            return earthRadiusMeters * c;
+        }
+
+        private static double DegreesToRadians(double degrees)
+        {
+            return degrees * Math.PI / 180.0;
         }
     }
 }
