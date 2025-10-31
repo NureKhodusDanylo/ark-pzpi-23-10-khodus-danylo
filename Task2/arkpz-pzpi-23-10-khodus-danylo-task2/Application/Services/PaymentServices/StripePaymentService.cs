@@ -6,10 +6,6 @@ using Stripe;
 
 namespace Application.Services.PaymentServices;
 
-/// <summary>
-/// Real Stripe payment service using Stripe .NET SDK
-/// Documentation: https://stripe.com/docs/api
-/// </summary>
 public class StripePaymentService : IPaymentService
 {
     private readonly ILogger<StripePaymentService> _logger;

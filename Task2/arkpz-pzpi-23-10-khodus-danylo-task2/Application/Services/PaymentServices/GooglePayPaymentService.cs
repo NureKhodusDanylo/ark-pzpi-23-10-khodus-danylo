@@ -7,12 +7,6 @@ using System.Text.Json;
 
 namespace Application.Services.PaymentServices;
 
-/// <summary>
-/// Real Google Pay payment service using Stripe as payment gateway
-/// Google Pay itself doesn't process payments - it provides encrypted payment tokens
-/// that are processed through payment gateways like Stripe, PayPal, Adyen, etc.
-/// Documentation: https://developers.google.com/pay/api
-/// </summary>
 public class GooglePayPaymentService : IPaymentService
 {
     private readonly ILogger<GooglePayPaymentService> _logger;

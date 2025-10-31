@@ -1,4 +1,4 @@
-using Application.Abstractions.Interfaces;
+﻿using Application.Abstractions.Interfaces;
 using Application.Services;
 using Application.Services.PaymentServices;
 using Entities.Config;
@@ -89,6 +89,17 @@ namespace RobDeliveryAPI
                 };
             });
 
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("AllowAllOrigins",
+                    builder =>
+                    {
+                        builder.AllowAnyOrigin()   // Разрешает запросы с любого источника
+                               .AllowAnyMethod()   // Разрешает любые HTTP-методы (GET, POST, PUT, DELETE и т.д.)
+                               .AllowAnyHeader();  // Разрешает любые HTTP-заголовки
+                    });
+            });
+
             builder.Services.AddAuthorization();
 
             builder.Services.AddControllers();
@@ -162,7 +173,8 @@ namespace RobDeliveryAPI
                 app.UseSwaggerUI();
             }
 
-            app.UseHttpsRedirection();
+            //app.UseHttpsRedirection();
+            app.UseCors("AllowAllOrigins");
 
             // Enable serving static files from Uploads directory
             app.UseStaticFiles(new StaticFileOptions

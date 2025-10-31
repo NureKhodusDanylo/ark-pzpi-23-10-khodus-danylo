@@ -8,10 +8,6 @@ using PayPalHttp;
 
 namespace Application.Services.PaymentServices;
 
-/// <summary>
-/// Real PayPal payment service using PayPal Checkout SDK
-/// Documentation: https://developer.paypal.com/docs/checkout/
-/// </summary>
 public class PayPalPaymentService : IPaymentService
 {
     private readonly PayPalHttpClient _client;
