@@ -1,0 +1,45 @@
+services:
+  robdeliveryapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: robdelivery-api
+    ports:
+      - "5102:8080"
+      - "7102:8081"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development #Production  
+      - ASPNETCORE_URLS=http://+:8080
+      # JWT Configuration (override in .env file)
+      - Jwt__Secret=${JWT_SECRET:-YourSuperSecretKeyThatIsAtLeast32CharactersLong!}
+      - Jwt__Issuer=${JWT_ISSUER:-RobDeliveryAPI}
+      - Jwt__Audience=${JWT_AUDIENCE:-RobDeliveryAPI}
+      - Jwt__ExpirationInHours=${JWT_EXPIRATION_HOURS:-24}
+    volumes:
+      # Persist SQLite database
+      - robdelivery-db:/app/Infrastructure/DB_Storage
+      # Persist uploaded files
+      - robdelivery-uploads:/app/Uploads
+      # Persist backups
+      - robdelivery-backups:/app/Backups
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - robdelivery-network
+
+volumes:
+  robdelivery-db:
+    driver: local
+  robdelivery-uploads:
+    driver: local
+  robdelivery-backups:
+    driver: local
+
+networks:
+  robdelivery-network:
+    driver: bridge
