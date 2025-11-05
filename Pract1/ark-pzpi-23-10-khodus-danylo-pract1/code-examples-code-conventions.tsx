@@ -138,6 +138,46 @@ displayUser(userData);
 
 /* ===== В.5 ===== */
 // Погано
+// Функція для додавання двох чисел
+function add(a: number, b: number) {
+  // Створюємо змінну для результату
+  const result = a + b; // додаємо a до b
+  // Повертаємо результат
+  return result;
+}
+
+// Викликаємо функцію
+add(5, 10);
+
+// Добре
+
+/**
+ * Обчислює вартість замовлення з урахуванням ПДВ та персональної знижки клієнта.
+ *
+ * @remarks
+ * Ця функція не застосовує знижку, якщо сума замовлення менша за мінімальний поріг.
+ *
+ * @param amount - Початкова сума замовлення.
+ * @param discountRate - Відсоток персональної знижки клієнта (наприклад, 0.1 для 10%).
+ * @returns Фінальна вартість замовлення.
+ */
+function calculateOrderTotal(amount: number, discountRate: number): number {
+  const VAT_RATE = 0.2; // 20% ПДВ
+  const MINIMUM_ORDER_FOR_DISCOUNT = 1000;
+
+  let total = amount * (1 + VAT_RATE);
+
+  // Чому ми перевіряємо саме total, а не amount?
+  // Бізнес-вимога: знижка застосовується до суми з ПДВ, щоб стимулювати більші покупки.
+  if (total > MINIMUM_ORDER_FOR_DISCOUNT) {
+    total -= total * discountRate;
+  }
+
+  return total;
+}
+
+/* ===== В.6 ===== */
+// Погано
 async function fetchUserData(userId: number) {
   try {
     const response = await fetch(`https://api.example.com/users/${userId}`);
@@ -201,7 +241,7 @@ try {
 }
 
 
-/* ===== В.6 ===== */
+/* ===== В.7 ===== */
 // Погано
 interface Product {
   id: number;
@@ -247,7 +287,7 @@ function calculateTotal(products: Product[]): number {
   }, 0);
 }
 
-/* ===== В.7 ===== */
+/* ===== В.8 ===== */
 // Погано
 /**
  * Розраховує вартість доставки.
