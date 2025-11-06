@@ -4,7 +4,7 @@
 
 Ходус Данило 
 
-Принципи побудови підтримуваного та безпечного коду на TypeScript
+Принципи побудови підтримуваного та безпечного коду з використанням Official TypeScript Documentation для мови TypeScript
 
 Оптимізація коду у TypeScript за допомогою методів рефакторингу Remove Setting Method, Hide Method та Remove Parameter
 
