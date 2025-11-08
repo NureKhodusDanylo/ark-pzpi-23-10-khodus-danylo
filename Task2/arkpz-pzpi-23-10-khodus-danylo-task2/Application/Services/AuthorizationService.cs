@@ -14,17 +14,20 @@ namespace Application.Services
         private readonly IPasswordHasher _passwordHasher;
         private readonly IGoogleTokenValidator _googleTokenValidator;
         private readonly INodeRepository _nodeRepository;
+        private readonly IAdminKeyRepository _adminKeyRepository;
 
         public AuthorizationService(
             IUserRepository userRepository,
             IPasswordHasher passwordHasher,
             IGoogleTokenValidator googleTokenValidator,
-            INodeRepository nodeRepository)
+            INodeRepository nodeRepository,
+            IAdminKeyRepository adminKeyRepository)
         {
             _userRepository = userRepository;
             _passwordHasher = passwordHasher;
             _googleTokenValidator = googleTokenValidator;
             _nodeRepository = nodeRepository;
+            _adminKeyRepository = adminKeyRepository;
         }
 
         public async Task<RegisterStatus> RegisterAsync(UserRegisterDTO registerData)
@@ -80,9 +83,30 @@ namespace Application.Services
 
             string passwordHash = _passwordHasher.Hash(registerData.Password);
 
-            // First registered user becomes Admin
+            // Determine user role
             var allUsers = await _userRepository.GetAllAsync();
             var isFirstUser = !allUsers.Any();
+            UserRole userRole = UserRole.User;
+
+            // Check admin key if provided
+            if (!string.IsNullOrEmpty(registerData.AdminKey))
+            {
+                var isValidKey = await _adminKeyRepository.IsKeyValidAsync(registerData.AdminKey);
+                if (isValidKey)
+                {
+                    userRole = UserRole.Admin;
+                }
+                else
+                {
+                    // Invalid admin key provided
+                    return RegisterStatus.InvalidAdminKey;
+                }
+            }
+            else if (isFirstUser)
+            {
+                // First registered user becomes Admin
+                userRole = UserRole.Admin;
+            }
 
             var user = new User
             {
@@ -90,11 +114,28 @@ namespace Application.Services
                 Email = registerData.Email,
                 PasswordHash = passwordHash,
                 PhoneNumber = registerData.PhoneNumber,
-                Role = isFirstUser ? UserRole.Admin : UserRole.User,
+                Role = userRole,
                 PersonalNodeId = personalNode.Id
             };
 
             await _userRepository.AddAsync(user);
+            await _userRepository.SaveChangesAsync();
+
+            // Mark admin key as used if provided
+            if (!string.IsNullOrEmpty(registerData.AdminKey) && userRole == UserRole.Admin)
+            {
+                var adminKey = await _adminKeyRepository.GetByKeyCodeAsync(registerData.AdminKey);
+                if (adminKey != null)
+                {
+                    adminKey.IsUsed = true;
+                    adminKey.UsedAt = DateTime.UtcNow;
+                    adminKey.UsedByUserId = user.Id;
+
+                    await _adminKeyRepository.UpdateAsync(adminKey);
+                    await _adminKeyRepository.SaveChangesAsync();
+                }
+            }
+
             return RegisterStatus.Success;
         }
 
@@ -122,20 +163,58 @@ namespace Application.Services
                 await _nodeRepository.AddAsync(personalNode);
                 await _nodeRepository.SaveChangesAsync();
 
-                // First registered user becomes Admin
+                // Determine user role
                 var allUsers = await _userRepository.GetAllAsync();
                 var isFirstUser = !allUsers.Any();
+                UserRole userRole = UserRole.User;
+
+                // Check admin key if provided
+                if (!string.IsNullOrEmpty(registerData.AdminKey))
+                {
+                    var isValidKey = await _adminKeyRepository.IsKeyValidAsync(registerData.AdminKey);
+                    if (isValidKey)
+                    {
+                        userRole = UserRole.Admin;
+                    }
+                    else
+                    {
+                        // Invalid admin key provided
+                        return RegisterStatus.InvalidAdminKey;
+                    }
+                }
+                else if (isFirstUser)
+                {
+                    // First registered user becomes Admin
+                    userRole = UserRole.Admin;
+                }
 
                 var user = new User
                 {
                     UserName = payload.Name,
                     Email = payload.Email,
                     GoogleId = payload.Subject,
-                    Role = isFirstUser ? UserRole.Admin : UserRole.User,
+                    Role = userRole,
                     PersonalNodeId = personalNode.Id
                 };
 
                 await _userRepository.AddAsync(user);
+                await _userRepository.SaveChangesAsync();
+
+                // Mark admin key as used if provided
+                if (!string.IsNullOrEmpty(registerData.AdminKey) && userRole == UserRole.Admin)
+                {
+                    var adminKey = await _adminKeyRepository.GetByKeyCodeAsync(registerData.AdminKey);
+                    if (adminKey != null)
+                    {
+                        adminKey.IsUsed = true;
+                        adminKey.UsedAt = DateTime.UtcNow;
+                        adminKey.UsedByUserId = user.Id;
+
+                        await _adminKeyRepository.UpdateAsync(adminKey);
+                        await _adminKeyRepository.SaveChangesAsync();
+                    }
+                }
+
                 return RegisterStatus.Success;
             }
             catch (InvalidJwtException)

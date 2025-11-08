@@ -1,4 +1,5 @@
 using Application.Abstractions.Interfaces;
+using Application.DTOs.AdminDTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -96,6 +97,97 @@ namespace RobDeliveryAPI.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, new { error = "Failed to retrieve robot efficiency", details = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Generate a new admin registration key
+        /// </summary>
+        [HttpPost("keys/generate")]
+        public async Task<IActionResult> GenerateAdminKey([FromBody] CreateAdminKeyDTO request)
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst("Id")?.Value;
+                if (userIdClaim == null || !int.TryParse(userIdClaim, out int adminId))
+                {
+                    return Unauthorized(new { error = "Invalid token" });
+                }
+
+                var adminKey = await _adminService.GenerateAdminKeyAsync(
+                    adminId,
+                    request.ExpiresAt,
+                    request.Description
+                );
+
+                return Ok(new
+                {
+                    message = "Admin key generated successfully",
+                    key = adminKey
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "Failed to generate admin key", details = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Get all admin keys
+        /// </summary>
+        [HttpGet("keys")]
+        public async Task<IActionResult> GetAllAdminKeys()
+        {
+            try
+            {
+                var keys = await _adminService.GetAllAdminKeysAsync();
+                return Ok(keys);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "Failed to retrieve admin keys", details = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Get unused admin keys
+        /// </summary>
+        [HttpGet("keys/unused")]
+        public async Task<IActionResult> GetUnusedAdminKeys()
+        {
+            try
+            {
+                var keys = await _adminService.GetUnusedAdminKeysAsync();
+                return Ok(keys);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "Failed to retrieve unused admin keys", details = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Revoke an admin key
+        /// </summary>
+        [HttpPost("keys/{keyId}/revoke")]
+        public async Task<IActionResult> RevokeAdminKey(int keyId)
+        {
+            try
+            {
+                var success = await _adminService.RevokeAdminKeyAsync(keyId);
+
+                if (success)
+                {
+                    return Ok(new { message = "Admin key revoked successfully" });
+                }
+                else
+                {
+                    return NotFound(new { error = "Admin key not found or already used" });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "Failed to revoke admin key", details = ex.Message });
             }
         }
     }

@@ -23,5 +23,25 @@ namespace Application.Abstractions.Interfaces
         /// Get robot efficiency analytics
         /// </summary>
         Task<Dictionary<int, double>> GetRobotEfficiencyAsync();
+
+        /// <summary>
+        /// Generate a new admin registration key
+        /// </summary>
+        Task<AdminKeyDTO> GenerateAdminKeyAsync(int createdByAdminId, DateTime? expiresAt = null, string? description = null);
+
+        /// <summary>
+        /// Get all admin keys
+        /// </summary>
+        Task<IEnumerable<AdminKeyDTO>> GetAllAdminKeysAsync();
+
+        /// <summary>
+        /// Get unused admin keys
+        /// </summary>
+        Task<IEnumerable<AdminKeyDTO>> GetUnusedAdminKeysAsync();
+
+        /// <summary>
+        /// Revoke an admin key (mark as used)
+        /// </summary>
+        Task<bool> RevokeAdminKeyAsync(int keyId);
     }
 }

@@ -4,7 +4,7 @@ namespace Infrastructure.Repository
 {
     public abstract class GenericRepository<T> where T : class, IDbEntity
     {
-        private MyDbContext _context;
+        protected MyDbContext _context;
         public GenericRepository(MyDbContext context)
         {
             _context = context;

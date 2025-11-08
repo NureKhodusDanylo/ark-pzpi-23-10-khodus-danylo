@@ -4,4 +4,5 @@
     EmailBusy,
     UnknownOathProvider = 403,
     InvalidToken = 401,
+    InvalidAdminKey = 400,
 }

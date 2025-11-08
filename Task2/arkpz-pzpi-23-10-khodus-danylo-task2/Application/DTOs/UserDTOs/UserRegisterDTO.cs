@@ -15,6 +15,11 @@ namespace Application.DTOs.UserDTOs
         public string? googleJwtToken { get; set; }
         public string? PhoneNumber { get; set; }
 
+        /// <summary>
+        /// Optional admin registration key. If provided and valid, user will be registered as Admin
+        /// </summary>
+        public string? AdminKey { get; set; }
+
         // User's personal location (creates a personal Node)
         [Required]
         public double Latitude { get; set; }

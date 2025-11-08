@@ -36,6 +36,7 @@ namespace RobDeliveryAPI
             builder.Services.AddScoped<INodeRepository, NodeRepository>();
             builder.Services.AddScoped<IRobotRepository, RobotRepository>();
             builder.Services.AddScoped<IFileRepository, FileRepository>();
+            builder.Services.AddScoped<IAdminKeyRepository, AdminKeyRepository>();
 
             // Services
             builder.Services.AddScoped<IAuthorizationService, AuthorizationService>();

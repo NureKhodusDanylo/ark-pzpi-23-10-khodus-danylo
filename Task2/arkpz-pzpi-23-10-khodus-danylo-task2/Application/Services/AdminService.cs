@@ -2,6 +2,8 @@ using Application.Abstractions.Interfaces;
 using Application.DTOs.AdminDTOs;
 using Entities.Interfaces;
 using Entities.Models;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 
 namespace Application.Services
@@ -12,17 +14,20 @@ namespace Application.Services
         private readonly IOrderRepository _orderRepository;
         private readonly IRobotRepository _robotRepository;
         private readonly INodeRepository _nodeRepository;
+        private readonly IAdminKeyRepository _adminKeyRepository;
 
         public AdminService(
             IUserRepository userRepository,
             IOrderRepository orderRepository,
             IRobotRepository robotRepository,
-            INodeRepository nodeRepository)
+            INodeRepository nodeRepository,
+            IAdminKeyRepository adminKeyRepository)
         {
             _userRepository = userRepository;
             _orderRepository = orderRepository;
             _robotRepository = robotRepository;
             _nodeRepository = nodeRepository;
+            _adminKeyRepository = adminKeyRepository;
         }
 
         public async Task<SystemStatsDTO> GetSystemStatsAsync()
@@ -166,6 +171,96 @@ namespace Application.Services
             }
 
             return efficiency;
+        }
+
+        public async Task<AdminKeyDTO> GenerateAdminKeyAsync(int createdByAdminId, DateTime? expiresAt = null, string? description = null)
+        {
+            // Generate a unique secure key code
+            string keyCode = GenerateSecureKeyCode();
+
+            var adminKey = new AdminKey
+            {
+                KeyCode = keyCode,
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = expiresAt,
+                IsUsed = false,
+                CreatedByAdminId = createdByAdminId,
+                Description = description
+            };
+
+            await _adminKeyRepository.AddAsync(adminKey);
+            await _adminKeyRepository.SaveChangesAsync();
+
+            // Reload to get navigation properties
+            var createdKey = await _adminKeyRepository.GetByKeyCodeAsync(keyCode);
+
+            return MapToDTO(createdKey!);
+        }
+
+        public async Task<IEnumerable<AdminKeyDTO>> GetAllAdminKeysAsync()
+        {
+            var keys = await _adminKeyRepository.GetAllAsync();
+            return keys.Select(MapToDTO);
+        }
+
+        public async Task<IEnumerable<AdminKeyDTO>> GetUnusedAdminKeysAsync()
+        {
+            var keys = await _adminKeyRepository.GetUnusedKeysAsync();
+            return keys.Select(MapToDTO);
+        }
+
+        public async Task<bool> RevokeAdminKeyAsync(int keyId)
+        {
+            var key = await _adminKeyRepository.GetByIdAsync(keyId);
+            if (key == null || key.IsUsed)
+                return false;
+
+            key.IsUsed = true;
+            key.UsedAt = DateTime.UtcNow;
+
+            await _adminKeyRepository.UpdateAsync(key);
+            await _adminKeyRepository.SaveChangesAsync();
+
+            return true;
+        }
+
+        private string GenerateSecureKeyCode()
+        {
+            // Generate a secure random key using cryptographic random
+            const int keyLength = 32;
+            var randomBytes = new byte[keyLength];
+
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(randomBytes);
+            }
+
+            // Convert to base64 and make it URL-safe
+            string keyCode = Convert.ToBase64String(randomBytes)
+                .Replace("+", "")
+                .Replace("/", "")
+                .Replace("=", "")
+                .Substring(0, 24); // Take first 24 characters for readability
+
+            return $"ADMIN-{keyCode}";
+        }
+
+        private AdminKeyDTO MapToDTO(AdminKey key)
+        {
+            return new AdminKeyDTO
+            {
+                Id = key.Id,
+                KeyCode = key.KeyCode,
+                CreatedAt = key.CreatedAt,
+                ExpiresAt = key.ExpiresAt,
+                IsUsed = key.IsUsed,
+                UsedAt = key.UsedAt,
+                UsedByUserId = key.UsedByUserId,
+                UsedByUserName = key.UsedByUser?.UserName,
+                CreatedByAdminId = key.CreatedByAdminId,
+                CreatedByAdminName = key.CreatedByAdmin?.UserName ?? "Unknown",
+                Description = key.Description
+            };
         }
     }
 }

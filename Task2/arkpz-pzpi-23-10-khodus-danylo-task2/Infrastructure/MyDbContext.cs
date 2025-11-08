@@ -17,6 +17,7 @@ namespace Infrastructure
         public DbSet<Robot> Robots { get; set; }
         public DbSet<Node> Nodes { get; set; }
         public DbSet<FileEntity> Files { get; set; }
+        public DbSet<AdminKey> AdminKeys { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -94,6 +95,25 @@ namespace Infrastructure
                 .HasForeignKey<User>(u => u.ProfilePhotoId)
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            // AdminKey relationships
+            modelBuilder.Entity<AdminKey>()
+                .HasOne(ak => ak.UsedByUser)
+                .WithMany()
+                .HasForeignKey(ak => ak.UsedByUserId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<AdminKey>()
+                .HasOne(ak => ak.CreatedByAdmin)
+                .WithMany()
+                .HasForeignKey(ak => ak.CreatedByAdminId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Add unique index for KeyCode
+            modelBuilder.Entity<AdminKey>()
+                .HasIndex(ak => ak.KeyCode)
+                .IsUnique();
         }
     }
 }
