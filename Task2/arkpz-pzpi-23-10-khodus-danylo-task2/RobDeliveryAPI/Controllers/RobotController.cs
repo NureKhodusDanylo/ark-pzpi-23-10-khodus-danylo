@@ -181,5 +181,97 @@ namespace RobDeliveryAPI.Controllers
 
             return Ok(robot);
         }
+
+        // Get orders assigned to this robot (for IoT devices)
+        [HttpGet("my-orders")]
+        [Authorize(Roles = "Iot")]
+        public async Task<IActionResult> GetMyOrders()
+        {
+            try
+            {
+                var robotIdClaim = User.FindFirst("RobotId")?.Value;
+                if (string.IsNullOrEmpty(robotIdClaim) || !int.TryParse(robotIdClaim, out int robotId))
+                {
+                    return Unauthorized(new { error = "Invalid robot token" });
+                }
+
+                var orders = await _robotService.GetMyOrdersAsync(robotId);
+                return Ok(orders);
+            }
+            catch (ArgumentException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "An error occurred while retrieving orders", details = ex.Message });
+            }
+        }
+
+        // Accept an assigned order (for IoT devices)
+        [HttpPost("order/{orderId}/accept")]
+        [Authorize(Roles = "Iot")]
+        public async Task<IActionResult> AcceptOrder(int orderId)
+        {
+            try
+            {
+                var robotIdClaim = User.FindFirst("RobotId")?.Value;
+                if (string.IsNullOrEmpty(robotIdClaim) || !int.TryParse(robotIdClaim, out int robotId))
+                {
+                    return Unauthorized(new { error = "Invalid robot token" });
+                }
+
+                var result = await _robotService.AcceptOrderAsync(robotId, orderId);
+                return Ok(result);
+            }
+            catch (ArgumentException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "An error occurred while accepting the order", details = ex.Message });
+            }
+        }
+
+        // Update order delivery phase (for IoT devices)
+        [HttpPost("order/{orderId}/phase")]
+        [Authorize(Roles = "Iot")]
+        public async Task<IActionResult> UpdateOrderPhase(int orderId, [FromBody] OrderPhaseUpdateDTO phaseUpdate)
+        {
+            try
+            {
+                var robotIdClaim = User.FindFirst("RobotId")?.Value;
+                if (string.IsNullOrEmpty(robotIdClaim) || !int.TryParse(robotIdClaim, out int robotId))
+                {
+                    return Unauthorized(new { error = "Invalid robot token" });
+                }
+
+                var result = await _robotService.UpdateOrderPhaseAsync(robotId, orderId, phaseUpdate);
+                return Ok(new
+                {
+                    message = "Order phase updated successfully",
+                    orderId = orderId,
+                    phase = phaseUpdate.Phase,
+                    timestamp = phaseUpdate.Timestamp
+                });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "An error occurred while updating order phase", details = ex.Message });
+            }
+        }
     }
 }

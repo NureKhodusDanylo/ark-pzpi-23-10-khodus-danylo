@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "author": "RobDelivery IoT Team",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "wokwi-esp32-devkit-v1",
+      "id": "esp",
+      "top": 0,
+      "left": 0,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led1",
+      "top": -28.8,
+      "left": 134.2,
+      "attrs": { "color": "green" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led2",
+      "top": -28.8,
+      "left": 153.4,
+      "attrs": { "color": "red" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led3",
+      "top": -28.8,
+      "left": 172.6,
+      "attrs": { "color": "blue" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r1",
+      "top": 19.2,
+      "left": 134.4,
+      "attrs": { "value": "220" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r2",
+      "top": 19.2,
+      "left": 153.6,
+      "attrs": { "value": "220" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r3",
+      "top": 19.2,
+      "left": 172.8,
+      "attrs": { "value": "220" }
+    }
+  ],
+  "connections": [
+    [ "esp:TX0", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX0", "$serialMonitor:TX", "", [] ],
+    [ "led1:A", "r1:1", "green", [] ],
+    [ "r1:2", "esp:D2", "green", [] ],
+    [ "led1:C", "esp:GND.1", "black", [] ],
+    [ "led2:A", "r2:1", "red", [] ],
+    [ "r2:2", "esp:D4", "red", [] ],
+    [ "led2:C", "esp:GND.1", "black", [] ],
+    [ "led3:A", "r3:1", "blue", [] ],
+    [ "r3:2", "esp:D5", "blue", [] ],
+    [ "led3:C", "esp:GND.1", "black", [] ]
+  ],
+  "dependencies": {}
+}

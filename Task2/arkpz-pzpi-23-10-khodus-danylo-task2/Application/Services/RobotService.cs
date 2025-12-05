@@ -9,11 +9,19 @@ namespace Application.Services
     {
         private readonly IRobotRepository _robotRepository;
         private readonly IPasswordHasher _passwordHasher;
+        private readonly IOrderRepository _orderRepository;
+        private readonly INodeRepository _nodeRepository;
 
-        public RobotService(IRobotRepository robotRepository, IPasswordHasher passwordHasher)
+        public RobotService(
+            IRobotRepository robotRepository,
+            IPasswordHasher passwordHasher,
+            IOrderRepository orderRepository,
+            INodeRepository nodeRepository)
         {
             _robotRepository = robotRepository;
             _passwordHasher = passwordHasher;
+            _orderRepository = orderRepository;
+            _nodeRepository = nodeRepository;
         }
 
         public async Task<RobotResponseDTO> CreateRobotAsync(CreateRobotDTO robotDto)
@@ -209,6 +217,222 @@ namespace Application.Services
             await _robotRepository.UpdateAsync(robot);
 
             return MapToResponseDTO(robot);
+        }
+
+        // IoT Order Management
+
+        public async Task<List<OrderAssignmentDTO>> GetMyOrdersAsync(int robotId)
+        {
+            // Verify robot exists
+            var robot = await _robotRepository.GetByIdAsync(robotId);
+            if (robot == null)
+            {
+                throw new ArgumentException($"Robot with ID {robotId} not found");
+            }
+
+            // Get all orders assigned to this robot that are not completed or cancelled
+            var orders = robot.ActiveOrders?.Where(o =>
+                o.Status != OrderStatus.Delivered &&
+                o.Status != OrderStatus.Cancelled
+            ).ToList() ?? new List<Order>();
+
+            var assignments = new List<OrderAssignmentDTO>();
+
+            foreach (var order in orders)
+            {
+                // Get nodes
+                var pickupNode = await _nodeRepository.GetByIdAsync(order.PickupNodeId);
+                var dropoffNode = await _nodeRepository.GetByIdAsync(order.DropoffNodeId);
+
+                if (pickupNode == null || dropoffNode == null)
+                    continue;
+
+                // Build route (simplified - in real implementation, fetch from order metadata or recalculate)
+                var route = new List<RouteWaypointDTO>
+                {
+                    new RouteWaypointDTO
+                    {
+                        SequenceNumber = 1,
+                        Latitude = pickupNode.Latitude,
+                        Longitude = pickupNode.Longitude,
+                        Action = "travel",
+                        DistanceMeters = 0
+                    },
+                    new RouteWaypointDTO
+                    {
+                        SequenceNumber = 2,
+                        Latitude = dropoffNode.Latitude,
+                        Longitude = dropoffNode.Longitude,
+                        Action = "deliver",
+                        DistanceMeters = CalculateDistance(
+                            pickupNode.Latitude, pickupNode.Longitude,
+                            dropoffNode.Latitude, dropoffNode.Longitude
+                        )
+                    }
+                };
+
+                assignments.Add(new OrderAssignmentDTO
+                {
+                    OrderId = order.Id,
+                    OrderName = order.Name,
+                    Description = order.Description ?? string.Empty,
+                    Weight = order.Weight,
+                    PickupNodeId = pickupNode.Id,
+                    PickupNodeName = pickupNode.Name,
+                    PickupLatitude = pickupNode.Latitude,
+                    PickupLongitude = pickupNode.Longitude,
+                    DropoffNodeId = dropoffNode.Id,
+                    DropoffNodeName = dropoffNode.Name,
+                    DropoffLatitude = dropoffNode.Latitude,
+                    DropoffLongitude = dropoffNode.Longitude,
+                    Route = route,
+                    TotalDistanceMeters = route.Sum(r => r.DistanceMeters),
+                    EstimatedBatteryUsagePercent = CalculateBatteryUsage(robot, route.Sum(r => r.DistanceMeters), order.Weight),
+                    OrderStatus = order.Status.ToString(),
+                    AssignedAt = order.CreatedAt
+                });
+            }
+
+            return assignments;
+        }
+
+        public async Task<AcceptOrderResponseDTO> AcceptOrderAsync(int robotId, int orderId)
+        {
+            // Verify robot exists
+            var robot = await _robotRepository.GetByIdAsync(robotId);
+            if (robot == null)
+            {
+                throw new ArgumentException($"Robot with ID {robotId} not found");
+            }
+
+            // Get order
+            var order = await _orderRepository.GetByIdAsync(orderId);
+            if (order == null)
+            {
+                throw new ArgumentException($"Order with ID {orderId} not found");
+            }
+
+            // Verify order is assigned to this robot
+            if (order.RobotId != robotId)
+            {
+                throw new InvalidOperationException("This order is not assigned to this robot");
+            }
+
+            // Verify order status
+            if (order.Status != OrderStatus.Pending && order.Status != OrderStatus.Processing)
+            {
+                throw new InvalidOperationException($"Cannot accept order with status {order.Status}");
+            }
+
+            // Update order status to Processing
+            order.Status = OrderStatus.Processing;
+            await _orderRepository.UpdateAsync(order);
+
+            // Update robot status to Delivering
+            robot.Status = RobotStatus.Delivering;
+            await _robotRepository.UpdateAsync(robot);
+
+            return new AcceptOrderResponseDTO
+            {
+                Message = "Order accepted successfully",
+                OrderId = orderId,
+                OrderStatus = order.Status.ToString(),
+                AcceptedAt = DateTime.UtcNow
+            };
+        }
+
+        public async Task<bool> UpdateOrderPhaseAsync(int robotId, int orderId, OrderPhaseUpdateDTO phaseUpdate)
+        {
+            // Verify robot exists
+            var robot = await _robotRepository.GetByIdAsync(robotId);
+            if (robot == null)
+            {
+                throw new ArgumentException($"Robot with ID {robotId} not found");
+            }
+
+            // Get order
+            var order = await _orderRepository.GetByIdAsync(orderId);
+            if (order == null)
+            {
+                throw new ArgumentException($"Order with ID {orderId} not found");
+            }
+
+            // Verify order is assigned to this robot
+            if (order.RobotId != robotId)
+            {
+                throw new InvalidOperationException("This order is not assigned to this robot");
+            }
+
+            // Update order status based on phase
+            switch (phaseUpdate.Phase.ToUpper())
+            {
+                case "FLIGHT_TO_PICKUP":
+                case "AT_PICKUP":
+                case "LOADING":
+                    order.Status = OrderStatus.Processing;
+                    break;
+
+                case "FLIGHT_TO_DROPOFF":
+                case "AT_DROPOFF":
+                case "UNLOADING":
+                    order.Status = OrderStatus.EnRoute;
+                    break;
+
+                case "PACKAGE_DELIVERED":
+                    order.Status = OrderStatus.Delivered;
+                    robot.Status = RobotStatus.Idle;
+                    await _robotRepository.UpdateAsync(robot);
+                    break;
+
+                case "FLIGHT_TO_CHARGING":
+                    robot.Status = RobotStatus.Charging;
+                    await _robotRepository.UpdateAsync(robot);
+                    break;
+
+                default:
+                    throw new ArgumentException($"Unknown phase: {phaseUpdate.Phase}");
+            }
+
+            await _orderRepository.UpdateAsync(order);
+
+            return true;
+        }
+
+        // Helper methods
+
+        private static double CalculateDistance(double lat1, double lon1, double lat2, double lon2)
+        {
+            // Haversine formula
+            const double R = 6371000; // Earth radius in meters
+            var dLat = ToRadians(lat2 - lat1);
+            var dLon = ToRadians(lon2 - lon1);
+
+            var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                    Math.Cos(ToRadians(lat1)) * Math.Cos(ToRadians(lat2)) *
+                    Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+
+            var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+            return R * c;
+        }
+
+        private static double ToRadians(double degrees)
+        {
+            return degrees * Math.PI / 180.0;
+        }
+
+        private static double CalculateBatteryUsage(Robot robot, double distanceMeters, double packageWeight)
+        {
+            // Calculate energy consumption
+            var baseConsumption = robot.EnergyConsumptionPerMeterJoules * distanceMeters;
+
+            // Add weight penalty (10% more consumption per kg)
+            var weightPenalty = 1.0 + (packageWeight * 0.1);
+            var totalEnergyConsumed = baseConsumption * weightPenalty;
+
+            // Convert to percentage
+            var batteryUsagePercent = (totalEnergyConsumed / robot.BatteryCapacityJoules) * 100.0;
+
+            return Math.Round(batteryUsagePercent, 2);
         }
 
         private static RobotResponseDTO MapToResponseDTO(Robot robot)

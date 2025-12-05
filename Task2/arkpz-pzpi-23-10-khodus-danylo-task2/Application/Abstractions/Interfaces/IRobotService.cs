@@ -17,5 +17,10 @@ namespace Application.Abstractions.Interfaces
         // IoT Device Authentication
         Task<(bool Success, int? RobotId, string? ErrorMessage)> RegisterRobotAsync(RobotRegisterDTO registerDto);
         Task<(bool Success, int? RobotId, string? ErrorMessage)> AuthenticateRobotAsync(RobotLoginDTO loginDto);
+
+        // IoT Order Management
+        Task<List<OrderAssignmentDTO>> GetMyOrdersAsync(int robotId);
+        Task<AcceptOrderResponseDTO> AcceptOrderAsync(int robotId, int orderId);
+        Task<bool> UpdateOrderPhaseAsync(int robotId, int orderId, OrderPhaseUpdateDTO phaseUpdate);
     }
 }
