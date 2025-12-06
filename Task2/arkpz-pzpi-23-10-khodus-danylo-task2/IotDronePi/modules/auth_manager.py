@@ -180,6 +180,15 @@ class AuthManager:
         """
         return self.robot_id
 
+    def get_token(self):
+        """
+        Get authentication token
+
+        Returns:
+            str: JWT token or None if not authenticated
+        """
+        return self.token
+
     def refresh_token(self):
         """
         Refresh authentication token by re-authenticating

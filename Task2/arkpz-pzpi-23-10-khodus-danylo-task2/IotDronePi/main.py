@@ -1,17 +1,10 @@
-"""
-IoT Robot Delivery System - Main Entry Point with FSM
-ESP32 MicroPython Application for RobDeliveryAPI
-
-This version uses Finite State Machine for complete delivery cycle
-"""
-
 import time
 import network
 import urequests
 import ujson
 import sys
 
-# Add module paths
+# Add module paths jjgfdjgdfdgjfdjjfdgjdj
 sys.path.append('/config')
 sys.path.append('/core')
 sys.path.append('/modules')
