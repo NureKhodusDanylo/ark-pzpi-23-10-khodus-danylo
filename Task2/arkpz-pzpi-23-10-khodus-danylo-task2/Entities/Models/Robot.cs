@@ -19,7 +19,7 @@ namespace Entities.Models
         public double MaxFlightRangeMeters
         {
             get => BatteryCapacityJoules / EnergyConsumptionPerMeterJoules;
-            set => BatteryCapacityJoules = value * EnergyConsumptionPerMeterJoules;
+
         }
 
         // IoT Connection

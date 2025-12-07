@@ -342,12 +342,12 @@ namespace RobDeliveryAPI.Controllers
         /// Execute an order - automatically find and assign optimal drone with route calculation
         /// </summary>
         [HttpPost("{id}/execute")]
-        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> ExecuteOrder(int id)
         {
             try
             {
-                var result = await _orderService.ExecuteOrderAsync(id);
+                int userId = GetAuthenticatedUserId();
+                var result = await _orderService.ExecuteOrderAsync(id, userId);
                 return Ok(result);
             }
             catch (ArgumentException ex)

@@ -15,6 +15,6 @@ namespace Application.Abstractions.Interfaces
         Task<bool> AssignRobotToOrderAsync(int orderId, int robotId);
         Task<bool> CancelOrderAsync(int orderId, int userId);
         Task<bool> DeleteOrderAsync(int orderId);
-        Task<ExecuteOrderResponseDTO> ExecuteOrderAsync(int orderId);
+        Task<ExecuteOrderResponseDTO> ExecuteOrderAsync(int orderId, int usetId);
     }
 }

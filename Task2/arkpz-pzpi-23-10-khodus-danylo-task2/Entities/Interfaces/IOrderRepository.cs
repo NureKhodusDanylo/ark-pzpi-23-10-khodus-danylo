@@ -14,6 +14,7 @@ namespace Entities.Interfaces
         Task UpdateAsync(Order order);
         Task DeleteAsync(int orderId);
         Task<bool> ExistsAsync(int orderId);
+        Task<bool> DoesItBelong(int orderId, int userId);
         Task SaveChangesAsync();
     }
 }

@@ -108,5 +108,12 @@ namespace Infrastructure.Repository
         {
             return await _context.Orders.AnyAsync(o => o.Id == orderId);
         }
+
+        public async Task<bool> DoesItBelong(int orderId, int userId)
+        {
+            return await _context.Orders
+                .AnyAsync(o => o.Id == orderId && o.SenderId == userId);
+        }
+
     }
 }

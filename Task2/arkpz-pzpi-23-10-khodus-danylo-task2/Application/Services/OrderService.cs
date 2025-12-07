@@ -195,18 +195,6 @@ namespace Application.Services
                 throw new ArgumentException($"Robot with ID {robotId} does not exist");
             }
 
-            // Check if robot is available
-            if (robot.Status != RobotStatus.Idle)
-            {
-                throw new InvalidOperationException($"Robot {robot.Name} is not available (current status: {robot.Status})");
-            }
-
-            // Check if robot has sufficient battery
-            if (robot.BatteryLevel < 20)
-            {
-                throw new InvalidOperationException($"Robot {robot.Name} has insufficient battery ({robot.BatteryLevel}%)");
-            }
-
             // Check if order can be assigned
             if (order.Status != OrderStatus.Pending && order.Status != OrderStatus.Processing)
             {
@@ -333,13 +321,18 @@ namespace Application.Services
             };
         }
 
-        public async Task<ExecuteOrderResponseDTO> ExecuteOrderAsync(int orderId)
+        public async Task<ExecuteOrderResponseDTO> ExecuteOrderAsync(int orderId, int userId)
         {
             // Get the order
             var order = await _orderRepository.GetByIdAsync(orderId);
             if (order == null)
             {
                 throw new ArgumentException($"Order with ID {orderId} not found");
+            }
+
+            if ( !(await _orderRepository.DoesItBelong(orderId, userId)))
+            {
+                throw new InvalidOperationException($"Cannot execute order. Only sender's orders can be executed.");
             }
 
             // Validate order status
