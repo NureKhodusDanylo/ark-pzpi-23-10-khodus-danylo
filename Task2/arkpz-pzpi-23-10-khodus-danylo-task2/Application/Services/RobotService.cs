@@ -31,6 +31,14 @@ namespace Application.Services
             if (string.IsNullOrWhiteSpace(robotDto.Model))
                 throw new ArgumentException("Robot model is required");
 
+            // Validate CurrentNodeId if provided
+            if (robotDto.CurrentNodeId.HasValue)
+            {
+                var nodeExists = await _nodeRepository.ExistsAsync(robotDto.CurrentNodeId.Value);
+                if (!nodeExists)
+                    throw new ArgumentException($"Node with ID {robotDto.CurrentNodeId.Value} does not exist");
+            }
+
             var robot = new Robot
             {
                 Name = robotDto.Name,
@@ -86,6 +94,14 @@ namespace Application.Services
             if (robotDto.BatteryLevel < 0 || robotDto.BatteryLevel > 100)
                 throw new ArgumentException("Battery level must be between 0 and 100");
 
+            // Validate CurrentNodeId if provided
+            if (robotDto.CurrentNodeId.HasValue)
+            {
+                var nodeExists = await _nodeRepository.ExistsAsync(robotDto.CurrentNodeId.Value);
+                if (!nodeExists)
+                    throw new ArgumentException($"Node with ID {robotDto.CurrentNodeId.Value} does not exist");
+            }
+
             robot.Name = robotDto.Name;
             robot.Model = robotDto.Model;
             robot.Type = robotDto.Type;
@@ -133,6 +149,14 @@ namespace Application.Services
             // Validate port range
             if (registerDto.Port.HasValue && (registerDto.Port.Value < 1 || registerDto.Port.Value > 65535))
                 return (false, null, "Port must be between 1 and 65535");
+
+            // Validate CurrentNodeId if provided
+            if (registerDto.CurrentNodeId.HasValue)
+            {
+                var nodeExists = await _nodeRepository.ExistsAsync(registerDto.CurrentNodeId.Value);
+                if (!nodeExists)
+                    return (false, null, $"Node with ID {registerDto.CurrentNodeId.Value} does not exist");
+            }
 
             // Hash the access key
             var accessKeyHash = _passwordHasher.Hash(registerDto.AccessKey);
@@ -204,6 +228,22 @@ namespace Application.Services
             if (!Enum.TryParse<RobotStatus>(statusUpdate.Status, true, out var newStatus))
             {
                 throw new ArgumentException("Invalid status. Must be: Idle, Delivering, Charging, or Maintenance");
+            }
+
+            // Validate CurrentNodeId if provided
+            if (statusUpdate.CurrentNodeId.HasValue)
+            {
+                var nodeExists = await _nodeRepository.ExistsAsync(statusUpdate.CurrentNodeId.Value);
+                if (!nodeExists)
+                    throw new ArgumentException($"Node with ID {statusUpdate.CurrentNodeId.Value} does not exist");
+            }
+
+            // Validate TargetNodeId if provided
+            if (statusUpdate.TargetNodeId.HasValue)
+            {
+                var nodeExists = await _nodeRepository.ExistsAsync(statusUpdate.TargetNodeId.Value);
+                if (!nodeExists)
+                    throw new ArgumentException($"Target node with ID {statusUpdate.TargetNodeId.Value} does not exist");
             }
 
             // Update robot status and location
