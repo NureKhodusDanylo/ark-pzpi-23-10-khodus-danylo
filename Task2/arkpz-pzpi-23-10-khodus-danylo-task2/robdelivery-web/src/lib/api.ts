@@ -13,7 +13,7 @@ import type {
   RobotEfficiency,
 } from '../types';
 
-const API_BASE_URL = 'https://ark-pzpi-23-10-khodus-danylo.onrender.com/api';
+const API_BASE_URL = 'http://http://35.192.164.131:5102/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,

@@ -352,7 +352,9 @@ namespace Application.Services
 
             // Get all drones on charging stations
             var chargingDrones = await _robotRepository.GetByTypeAndStatusAsync(RobotType.Drone, RobotStatus.Charging);
-            var chargingDronesList = chargingDrones.ToList();
+            var idleDrones = await _robotRepository.GetByTypeAndStatusAsync(RobotType.Drone, RobotStatus.Idle);
+
+            var chargingDronesList = chargingDrones.ToList() ;
 
             if (!chargingDronesList.Any())
             {
