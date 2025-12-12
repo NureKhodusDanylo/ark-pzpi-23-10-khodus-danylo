@@ -19,7 +19,7 @@ services:
       - Jwt__Audience=${JWT_AUDIENCE:-RobDeliveryAPI}
       - Jwt__ExpirationInHours=${JWT_EXPIRATION_HOURS:-24}
     volumes:
-      - robdelivery-db:/app/Infrastructure/DB_Storage
+      - ./Infrastructure/DB_Storage:/app/Infrastructure/DB_Storage
       - robdelivery-uploads:/app/Uploads
       - robdelivery-backups:/app/Backups
     restart: unless-stopped
