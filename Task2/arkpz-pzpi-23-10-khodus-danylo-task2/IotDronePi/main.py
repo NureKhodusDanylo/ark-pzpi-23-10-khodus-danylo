@@ -309,6 +309,12 @@ class RobotControllerFSM:
 
     def state_at_pickup(self):
         """AT_PICKUP state: Arrived at pickup location"""
+        # Update current node to pickup node
+        pickup_node_id = self.order_manager.get_pickup_node_id()
+        if pickup_node_id:
+            self.robot.current_node_id = pickup_node_id
+            log_message("Arrived at pickup node {}".format(pickup_node_id))
+
         # Notify server
         self.order_manager.update_order_phase("AT_PICKUP")
 
@@ -357,6 +363,12 @@ class RobotControllerFSM:
 
     def state_at_dropoff(self):
         """AT_DROPOFF state: Arrived at dropoff location"""
+        # Update current node to dropoff node
+        dropoff_node_id = self.order_manager.get_dropoff_node_id()
+        if dropoff_node_id:
+            self.robot.current_node_id = dropoff_node_id
+            log_message("Arrived at dropoff node {}".format(dropoff_node_id))
+
         # Notify server
         self.order_manager.update_order_phase("AT_DROPOFF")
 
@@ -374,13 +386,13 @@ class RobotControllerFSM:
 
     def state_wait_for_pickup(self):
         """WAIT_FOR_PICKUP state: Wait for recipient to take package"""
-        # Check button press or timeout (60 seconds)
+        # Check button press or timeout (10 seconds for simulation)
         entry_time = self.fsm.get_state_data("entry_time", time.time())
         if self.hardware_controller.is_button_pressed():
             log_message("Package picked up by recipient")
             self.fsm.transition_to(DroneState.PACKAGE_DELIVERED)
-        elif time.time() - entry_time >= 60:
-            log_message("Package pickup timeout", "WARNING")
+        elif time.time() - entry_time >= 10:
+            log_message("Package pickup timeout (simulation)", "WARNING")
             self.fsm.transition_to(DroneState.PACKAGE_DELIVERED)
 
     def state_package_delivered(self):

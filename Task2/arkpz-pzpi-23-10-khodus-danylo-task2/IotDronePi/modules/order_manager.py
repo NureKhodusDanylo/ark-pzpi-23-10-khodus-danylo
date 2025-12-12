@@ -277,6 +277,28 @@ class OrderManager:
         """
         return self.route_waypoints
 
+    def get_pickup_node_id(self):
+        """
+        Get pickup node ID
+
+        Returns:
+            int: Pickup node ID or None
+        """
+        if self.current_order:
+            return self.current_order.get("pickup", {}).get("nodeId")
+        return None
+
+    def get_dropoff_node_id(self):
+        """
+        Get dropoff node ID
+
+        Returns:
+            int: Dropoff node ID or None
+        """
+        if self.current_order:
+            return self.current_order.get("dropoff", {}).get("nodeId")
+        return None
+
     def complete_order(self):
         """
         Complete current order
