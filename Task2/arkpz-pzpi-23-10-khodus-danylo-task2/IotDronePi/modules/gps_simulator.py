@@ -119,16 +119,14 @@ class GPSSimulator:
         # Drain battery based on distance traveled
         self.robot.drain_battery(movement_distance)
 
-        if DEBUG:
-            log_message(
-                "Moving: ({:.6f}, {:.6f}) -> ({:.6f}, {:.6f}), "
-                "Remaining: {:.2f}m, Battery: {:.1f}%".format(
-                    current_lat, current_lon, new_lat, new_lon,
-                    distance_to_target - movement_distance,
-                    self.robot.battery_level
-                ),
-                "DEBUG"
+        # Log movement with INFO level every update
+        log_message(
+            "Moving to ({:.6f}, {:.6f}), remaining: {:.0f}m, battery: {:.1f}%".format(
+                target_lat, target_lon,
+                distance_to_target - movement_distance,
+                self.robot.battery_level
             )
+        )
 
         return True
 

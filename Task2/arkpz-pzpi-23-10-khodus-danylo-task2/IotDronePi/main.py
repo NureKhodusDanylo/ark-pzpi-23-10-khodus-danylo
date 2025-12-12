@@ -63,7 +63,6 @@ class RobotControllerFSM:
         # Timers
         self.last_order_check_time = 0
         self.order_check_interval = 10  # Check for orders every 10 seconds
-        self.state_entry_time = time.time()
 
     def initialize(self):
         """
@@ -225,6 +224,10 @@ class RobotControllerFSM:
 
     def state_idle(self):
         """IDLE state: Wait and check for orders periodically"""
+        # Ensure robot status is Idle
+        if self.robot.status != "Idle":
+            self.robot.set_status("Idle")
+
         current_time = time.time()
 
         if current_time - self.last_order_check_time >= self.order_check_interval:
@@ -268,12 +271,11 @@ class RobotControllerFSM:
         """MOTORS_ON state: Start motors and begin flight"""
         self.hardware_controller.start_motors()
         self.fsm.transition_to(DroneState.FLIGHT_TO_PICKUP)
-        self.state_entry_time = time.time()
 
     def state_flight_to_pickup(self):
         """FLIGHT_TO_PICKUP state: Flying to pickup location"""
-        # Check if we just entered this state
-        if time.time() - self.state_entry_time < 1:
+        # Check if destination has been set (one-time setup)
+        if not self.gps_simulator.is_moving:
             # Set destination
             pickup_coords = self.order_manager.get_pickup_coordinates()
             if pickup_coords:
@@ -281,6 +283,9 @@ class RobotControllerFSM:
 
                 # Notify server
                 self.order_manager.update_order_phase("FLIGHT_TO_PICKUP")
+            else:
+                log_message("No pickup coordinates available", "ERROR")
+                self.fsm.handle_error("No pickup coordinates")
 
     def state_at_pickup(self):
         """AT_PICKUP state: Arrived at pickup location"""
@@ -297,13 +302,13 @@ class RobotControllerFSM:
     def state_open_compartment_pickup(self):
         """OPEN_COMPARTMENT_PICKUP state: Open compartment for loading"""
         self.hardware_controller.open_compartment()
-        self.fsm.transition_to(DroneState.LOADING)
-        self.state_entry_time = time.time()
+        self.fsm.transition_to(DroneState.LOADING, {"entry_time": time.time()})
 
     def state_loading(self):
         """LOADING state: Wait for package to be loaded"""
         # Wait 5 seconds for loading (simulated)
-        if time.time() - self.state_entry_time >= 5:
+        entry_time = self.fsm.get_state_data("entry_time", time.time())
+        if time.time() - entry_time >= 5:
             log_message("Package loaded")
             self.fsm.transition_to(DroneState.CLOSE_COMPARTMENT_PICKUP)
 
@@ -311,12 +316,11 @@ class RobotControllerFSM:
         """CLOSE_COMPARTMENT_PICKUP state: Close compartment after loading"""
         self.hardware_controller.close_compartment()
         self.fsm.transition_to(DroneState.FLIGHT_TO_DROPOFF)
-        self.state_entry_time = time.time()
 
     def state_flight_to_dropoff(self):
         """FLIGHT_TO_DROPOFF state: Flying to dropoff location"""
-        # Check if we just entered this state
-        if time.time() - self.state_entry_time < 1:
+        # Check if destination has been set (one-time setup)
+        if not self.gps_simulator.is_moving:
             # Start motors
             self.hardware_controller.start_motors()
 
@@ -327,6 +331,9 @@ class RobotControllerFSM:
 
                 # Notify server
                 self.order_manager.update_order_phase("FLIGHT_TO_DROPOFF")
+            else:
+                log_message("No dropoff coordinates available", "ERROR")
+                self.fsm.handle_error("No dropoff coordinates")
 
     def state_at_dropoff(self):
         """AT_DROPOFF state: Arrived at dropoff location"""
@@ -343,16 +350,16 @@ class RobotControllerFSM:
     def state_open_compartment_dropoff(self):
         """OPEN_COMPARTMENT_DROPOFF state: Open compartment for unloading"""
         self.hardware_controller.open_compartment()
-        self.fsm.transition_to(DroneState.WAIT_FOR_PICKUP)
-        self.state_entry_time = time.time()
+        self.fsm.transition_to(DroneState.WAIT_FOR_PICKUP, {"entry_time": time.time()})
 
     def state_wait_for_pickup(self):
         """WAIT_FOR_PICKUP state: Wait for recipient to take package"""
         # Check button press or timeout (60 seconds)
+        entry_time = self.fsm.get_state_data("entry_time", time.time())
         if self.hardware_controller.is_button_pressed():
             log_message("Package picked up by recipient")
             self.fsm.transition_to(DroneState.PACKAGE_DELIVERED)
-        elif time.time() - self.state_entry_time >= 60:
+        elif time.time() - entry_time >= 60:
             log_message("Package pickup timeout", "WARNING")
             self.fsm.transition_to(DroneState.PACKAGE_DELIVERED)
 
@@ -376,15 +383,14 @@ class RobotControllerFSM:
         if self.robot.battery_level < 50:
             # Need charging
             self.fsm.transition_to(DroneState.FLIGHT_TO_CHARGING)
-            self.state_entry_time = time.time()
         else:
             # Enough battery, return to idle
             self.fsm.transition_to(DroneState.IDLE)
 
     def state_flight_to_charging(self):
         """FLIGHT_TO_CHARGING state: Flying to charging station"""
-        # Check if we just entered this state
-        if time.time() - self.state_entry_time < 1:
+        # Check if destination has been set (one-time setup)
+        if not self.gps_simulator.is_moving:
             # Start motors
             self.hardware_controller.start_motors()
 
@@ -432,6 +438,9 @@ class RobotControllerFSM:
         # Cancel any active order
         if self.order_manager.has_active_order():
             self.order_manager.cancel_order("Error: {}".format(error))
+
+        # Reset robot status to Idle
+        self.robot.set_status("Idle")
 
         # Wait a bit
         time.sleep(5)

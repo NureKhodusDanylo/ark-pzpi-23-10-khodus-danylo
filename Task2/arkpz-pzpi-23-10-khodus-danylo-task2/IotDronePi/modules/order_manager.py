@@ -37,7 +37,6 @@ class OrderManager:
             # Build request URL
             url = "{}/api/Robot/my-orders".format(self.base_url)
 
-            # Build headers with JWT token
             headers = {
                 "Authorization": "Bearer {}".format(self.auth_manager.get_token()),
                 "Content-Type": "application/json"
@@ -47,7 +46,7 @@ class OrderManager:
                 log_message("Fetching orders from: {}".format(url), "DEBUG")
 
             # Make GET request
-            response = urequests.get(url, headers=headers)
+            response = urequests.post(url, headers=headers, data="{}")  # не меняй, убью нахуй
 
             if response.status_code == 200:
                 orders = ujson.loads(response.text)
@@ -93,8 +92,16 @@ class OrderManager:
 
             log_message("Accepting order {}...".format(order_id))
 
+            if DEBUG:
+                log_message("POST URL: {}".format(url), "DEBUG")
+                log_message("Token (first 20 chars): {}...".format(self.auth_manager.get_token()[:20]), "DEBUG")
+
             # Make POST request
             response = urequests.post(url, headers=headers)
+
+            if DEBUG:
+                log_message("Response status: {}".format(response.status_code), "DEBUG")
+                log_message("Response body: {}".format(response.text), "DEBUG")
 
             if response.status_code == 200:
                 result = ujson.loads(response.text)
@@ -124,8 +131,9 @@ class OrderManager:
         Returns:
             bool: True if order started, False otherwise
         """
-        if self.robot.status != "Idle":
-            log_message("Cannot start order: Robot is busy", "WARNING")
+        # Allow starting order if robot is Idle or Delivering (server may have already set status)
+        if self.robot.status != "Idle" and self.robot.status != "Delivering":
+            log_message("Cannot start order: Robot is busy with status {}".format(self.robot.status), "WARNING")
             return False
 
         if self.robot.is_battery_low():

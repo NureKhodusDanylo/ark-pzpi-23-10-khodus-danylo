@@ -100,7 +100,7 @@ class DroneFSM:
 
             DroneState.PACKAGE_DELIVERED: [DroneState.CLOSE_COMPARTMENT_DROPOFF, DroneState.ERROR],
 
-            DroneState.CLOSE_COMPARTMENT_DROPOFF: [DroneState.FLIGHT_TO_CHARGING, DroneState.ERROR],
+            DroneState.CLOSE_COMPARTMENT_DROPOFF: [DroneState.FLIGHT_TO_CHARGING, DroneState.IDLE, DroneState.ERROR],
 
             DroneState.FLIGHT_TO_CHARGING: [
                 DroneState.AT_CHARGING_STATION,
