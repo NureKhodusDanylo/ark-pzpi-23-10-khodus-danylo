@@ -44,7 +44,7 @@ namespace Application.Services
                 Name = robotDto.Name,
                 Model = robotDto.Model,
                 Type = robotDto.Type,
-                Status = RobotStatus.Idle,
+                Status = RobotStatus.Charging,
                 BatteryLevel = 100,
                 CurrentNodeId = robotDto.CurrentNodeId
             };
@@ -167,7 +167,7 @@ namespace Application.Services
                 Name = registerDto.Name,
                 Model = registerDto.Model,
                 Type = robotType,
-                Status = RobotStatus.Idle,
+                Status = RobotStatus.Charging,
                 BatteryLevel = 100.0,
                 SerialNumber = registerDto.SerialNumber,
                 AccessKeyHash = accessKeyHash,
@@ -364,17 +364,27 @@ namespace Application.Services
                 throw new InvalidOperationException($"Cannot accept order with status {order.Status}");
             }
 
-            // Update order status to Processing
-            order.Status = OrderStatus.Processing;
-            await _orderRepository.UpdateAsync(order);
+            // If order is already in Processing and robot is already Delivering, just return success
+            // This handles the case where the order was already assigned via AssignRobotToOrderAsync
+            bool alreadyAccepted = order.Status == OrderStatus.Processing && robot.Status == RobotStatus.Delivering;
 
-            // Update robot status to Delivering
-            robot.Status = RobotStatus.Delivering;
-            await _robotRepository.UpdateAsync(robot);
+            // Update order status to Processing only if it was Pending
+            if (order.Status == OrderStatus.Pending)
+            {
+                order.Status = OrderStatus.Processing;
+                await _orderRepository.UpdateAsync(order);
+            }
+
+            // Update robot status to Delivering only if it's not already
+            if (robot.Status != RobotStatus.Delivering)
+            {
+                robot.Status = RobotStatus.Delivering;
+                await _robotRepository.UpdateAsync(robot);
+            }
 
             return new AcceptOrderResponseDTO
             {
-                Message = "Order accepted successfully",
+                Message = alreadyAccepted ? "Order already accepted and in progress" : "Order accepted successfully",
                 OrderId = orderId,
                 OrderStatus = order.Status.ToString(),
                 AcceptedAt = DateTime.UtcNow
