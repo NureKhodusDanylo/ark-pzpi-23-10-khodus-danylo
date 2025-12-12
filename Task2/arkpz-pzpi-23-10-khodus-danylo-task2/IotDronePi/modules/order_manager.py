@@ -45,8 +45,8 @@ class OrderManager:
             if DEBUG:
                 log_message("Fetching orders from: {}".format(url), "DEBUG")
 
-            # Make POST request with empty body
-            response = urequests.post(url, headers=headers, data="{}")
+            # Make GET request
+            response = urequests.get(url, headers=headers)
 
             if response.status_code == 200:
                 orders = ujson.loads(response.text)
@@ -97,7 +97,7 @@ class OrderManager:
                 log_message("Token (first 20 chars): {}...".format(self.auth_manager.get_token()[:20]), "DEBUG")
 
             # Make POST request
-            response = urequests.post(url, headers=headers)
+            response = urequests.post(url, headers=headers, data="{}") 
 
             if DEBUG:
                 log_message("Response status: {}".format(response.status_code), "DEBUG")
