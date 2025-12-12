@@ -64,6 +64,11 @@ class RobotControllerFSM:
         self.last_order_check_time = 0
         self.order_check_interval = 10  # Check for orders every 10 seconds
 
+        # Home charging station coordinates
+        self.home_charging_lat = None
+        self.home_charging_lon = None
+        self.home_charging_node_id = None
+
     def initialize(self):
         """
         Initialize all subsystems
@@ -118,6 +123,10 @@ class RobotControllerFSM:
                 # Check if starting at charging station
                 if node_type == 1 or node_type_name == "ChargingStation":
                     start_node_is_charging_station = True
+                    # Save home charging station coordinates for return trips
+                    self.home_charging_lat = start_lat
+                    self.home_charging_lon = start_lon
+                    self.home_charging_node_id = start_node_id
                     log_message("START_NODE is a ChargingStation - will begin charging")
             else:
                 log_message("Warning: Start node has no coordinates, using config defaults", "WARNING")
@@ -280,8 +289,11 @@ class RobotControllerFSM:
             order = orders[0]
             self.fsm.transition_to(DroneState.ORDER_ASSIGNED, {"order": order})
         else:
-            # No orders, back to idle
-            self.fsm.transition_to(DroneState.IDLE)
+            # No orders, return to previous state (IDLE or CHARGING)
+            if self.fsm.previous_state == DroneState.CHARGING:
+                self.fsm.transition_to(DroneState.CHARGING)
+            else:
+                self.fsm.transition_to(DroneState.IDLE)
 
     def state_order_assigned(self):
         """ORDER_ASSIGNED state: Accept order and prepare"""
@@ -428,13 +440,9 @@ class RobotControllerFSM:
         """CLOSE_COMPARTMENT_DROPOFF state: Close compartment after delivery"""
         self.hardware_controller.close_compartment()
 
-        # Check battery level
-        if self.robot.battery_level < 50:
-            # Need charging
-            self.fsm.transition_to(DroneState.FLIGHT_TO_CHARGING)
-        else:
-            # Enough battery, return to idle
-            self.fsm.transition_to(DroneState.IDLE)
+        # Always return to charging station after delivery
+        # This ensures robot is always ready and at known location
+        self.fsm.transition_to(DroneState.FLIGHT_TO_CHARGING)
 
     def state_flight_to_charging(self):
         """FLIGHT_TO_CHARGING state: Flying to charging station"""
@@ -446,11 +454,15 @@ class RobotControllerFSM:
             # Notify server
             self.order_manager.update_order_phase("FLIGHT_TO_CHARGING")
 
-            # TODO: Get nearest charging station coordinates from server
-            # For now, just fly to a fixed location
-            charging_lat = self.robot.current_latitude + 0.001
-            charging_lon = self.robot.current_longitude
-            self.gps_simulator.set_destination(charging_lat, charging_lon)
+            # Use saved home charging station coordinates
+            if self.home_charging_lat and self.home_charging_lon:
+                self.gps_simulator.set_destination(
+                    self.home_charging_lat,
+                    self.home_charging_lon,
+                    self.home_charging_node_id
+                )
+            else:
+                log_message("No home charging station saved, using current location", "WARNING")
 
     def state_at_charging_station(self):
         """AT_CHARGING_STATION state: Arrived at charging station"""
@@ -468,12 +480,20 @@ class RobotControllerFSM:
 
     def state_charging(self):
         """CHARGING state: Charging battery"""
-        if self.robot.battery_level >= 95:
-            log_message("Charging complete")
-            self.battery_manager.stop_charging()
-            self.robot.set_status("Idle")
-            self.telemetry_manager.send_status_update(force=True)
-            self.fsm.transition_to(DroneState.IDLE)
+        # Stay in charging state even at 100%
+        # Robot can still receive orders when Status=Charging and BatteryLevel>=95
+
+        # Check for orders periodically (like IDLE state)
+        current_time = time.time()
+
+        if current_time - self.last_order_check_time >= self.order_check_interval:
+            self.last_order_check_time = current_time
+
+            # Check if battery is ready for delivery (>=95%)
+            if self.robot.battery_level >= 95:
+                # Temporarily transition to CHECK_ORDERS to fetch assignments
+                # FSM will return to CHARGING if no orders
+                self.fsm.transition_to(DroneState.CHECK_ORDERS)
 
     def state_error(self):
         """ERROR state: Handle error condition"""

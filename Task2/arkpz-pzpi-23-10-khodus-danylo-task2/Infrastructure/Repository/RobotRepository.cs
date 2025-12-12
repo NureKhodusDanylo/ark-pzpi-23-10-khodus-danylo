@@ -65,7 +65,9 @@ namespace Infrastructure.Repository
             return await _context.Robots
                 .Include(r => r.CurrentNode)
                 .Include(r => r.ActiveOrders)
-                .Where(r => r.Status == RobotStatus.Idle && r.BatteryLevel > 20)
+                .Where(r =>
+                    (r.Status == RobotStatus.Idle && r.BatteryLevel > 20) ||
+                    (r.Status == RobotStatus.Charging && r.BatteryLevel >= 95))
                 .OrderByDescending(r => r.BatteryLevel)
                 .ToListAsync();
         }

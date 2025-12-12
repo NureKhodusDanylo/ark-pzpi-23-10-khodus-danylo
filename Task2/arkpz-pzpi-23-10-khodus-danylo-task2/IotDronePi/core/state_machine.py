@@ -68,7 +68,7 @@ class DroneFSM:
         self.valid_transitions = {
             DroneState.IDLE: [DroneState.CHECK_ORDERS, DroneState.CHARGING, DroneState.ERROR],
 
-            DroneState.CHECK_ORDERS: [DroneState.IDLE, DroneState.ORDER_ASSIGNED, DroneState.ERROR],
+            DroneState.CHECK_ORDERS: [DroneState.IDLE, DroneState.CHARGING, DroneState.ORDER_ASSIGNED, DroneState.ERROR],
 
             DroneState.ORDER_ASSIGNED: [DroneState.MOTORS_ON, DroneState.ERROR],
 
@@ -109,7 +109,7 @@ class DroneFSM:
 
             DroneState.AT_CHARGING_STATION: [DroneState.CHARGING, DroneState.ERROR],
 
-            DroneState.CHARGING: [DroneState.IDLE, DroneState.ERROR],
+            DroneState.CHARGING: [DroneState.CHECK_ORDERS, DroneState.IDLE, DroneState.ERROR],
 
             DroneState.ERROR: [DroneState.IDLE]
         }
