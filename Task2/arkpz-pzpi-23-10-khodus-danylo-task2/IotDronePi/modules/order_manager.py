@@ -45,8 +45,8 @@ class OrderManager:
             if DEBUG:
                 log_message("Fetching orders from: {}".format(url), "DEBUG")
 
-            # Make GET request
-            response = urequests.post(url, headers=headers, data="{}")  # не меняй, убью нахуй
+            # Make POST request with empty body
+            response = urequests.post(url, headers=headers, data="{}")
 
             if response.status_code == 200:
                 orders = ujson.loads(response.text)
