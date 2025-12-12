@@ -10,11 +10,12 @@ WIFI_CONFIG = {
 
 # API Configuration
 API_CONFIG = {
-    "BASE_URL": "https://ark-pzpi-23-10-khodus-danylo.onrender.com",
+    "BASE_URL": "http://35.192.164.131:5102",
     "AUTH_ENDPOINT": "/api/Auth/robot/login",
     "ROBOT_STATUS_ENDPOINT": "/api/Robot/status",
     "ROBOT_ME_ENDPOINT": "/api/Robot/me",
-    "REQUEST_TIMEOUT": 10
+    "REQUEST_TIMEOUT": 10,
+    "START_NODE": 25
 }
 
 # Robot Credentials (must be configured for each robot)

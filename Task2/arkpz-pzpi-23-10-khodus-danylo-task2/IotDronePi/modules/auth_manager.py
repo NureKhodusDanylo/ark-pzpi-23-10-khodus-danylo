@@ -56,7 +56,8 @@ class AuthManager:
                 "serialNumber": self.serial_number,
                 "accessKey": self.access_key,
                 "batteryCapacityJoules": ROBOT_CONFIG.get("BATTERY_CAPACITY_JOULES", 360000),
-                "energyConsumptionPerMeterJoules": ROBOT_CONFIG.get("ENERGY_CONSUMPTION_PER_METER", 36)
+                "energyConsumptionPerMeterJoules": ROBOT_CONFIG.get("ENERGY_CONSUMPTION_PER_METER", 36),
+                "currentNodeId": API_CONFIG.get("START_NODE", 25)
             }
 
             headers = {

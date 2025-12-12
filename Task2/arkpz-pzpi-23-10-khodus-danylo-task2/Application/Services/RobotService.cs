@@ -355,7 +355,7 @@ namespace Application.Services
             // Verify order is assigned to this robot
             if (order.RobotId != robotId)
             {
-                throw new InvalidOperationException("This order is not assigned to this robot");
+                throw new InvalidOperationException($"This order is not assigned to this robot. Order.RobotId={order.RobotId}, Expected={robotId}");
             }
 
             // Verify order status
