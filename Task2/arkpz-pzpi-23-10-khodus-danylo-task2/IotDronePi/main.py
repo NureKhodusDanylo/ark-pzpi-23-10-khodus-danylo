@@ -101,14 +101,24 @@ class RobotControllerFSM:
         start_node_id = API_CONFIG.get("START_NODE", 25)
         start_node = self.telemetry_manager.fetch_node_info(start_node_id)
 
+        start_node_is_charging_station = False
+
         if start_node:
             start_lat = start_node.get('latitude')
             start_lon = start_node.get('longitude')
+            node_type = start_node.get('type', 0)  # 0=UserNode, 1=ChargingStation, 2=Depot
+            node_type_name = start_node.get('typeName', '')
+
             if start_lat is not None and start_lon is not None:
-                log_message("Setting robot start position from node {}: ({:.6f}, {:.6f})".format(
-                    start_node_id, start_lat, start_lon
+                log_message("Setting robot start position from node {}: ({:.6f}, {:.6f}), type={}".format(
+                    start_node_id, start_lat, start_lon, node_type_name
                 ))
                 self.robot.set_location(start_lat, start_lon, start_node_id)
+
+                # Check if starting at charging station
+                if node_type == 1 or node_type_name == "ChargingStation":
+                    start_node_is_charging_station = True
+                    log_message("START_NODE is a ChargingStation - will begin charging")
             else:
                 log_message("Warning: Start node has no coordinates, using config defaults", "WARNING")
         else:
@@ -117,7 +127,14 @@ class RobotControllerFSM:
         # Step 6: Initialize GPS simulator (after robot position is set)
         self.gps_simulator = GPSSimulator(self.robot)
 
-        # Step 7: Send initial telemetry
+        # Step 7: If starting at charging station, begin charging
+        if start_node_is_charging_station:
+            log_message("Initializing at charging station - starting charge cycle")
+            self.battery_manager.start_charging()
+            self.robot.set_status("Charging")
+            self.fsm.transition_to(DroneState.CHARGING)
+
+        # Step 8: Send initial telemetry
         self.telemetry_manager.send_status_update(force=True)
 
         self.initialized = True
