@@ -83,8 +83,7 @@ class RobotControllerFSM:
         # Set robot ID from authentication
         self.robot.robot_id = self.auth_manager.get_robot_id()
 
-        # Step 3: Initialize remaining managers
-        self.gps_simulator = GPSSimulator(self.robot)
+        # Step 3: Initialize managers (without GPS yet)
         self.battery_manager = BatteryManager(self.robot)
         self.telemetry_manager = TelemetryManager(self.robot, self.auth_manager)
         self.order_manager = OrderManager(self.robot, self.auth_manager)
@@ -97,7 +96,28 @@ class RobotControllerFSM:
         else:
             log_message("Warning: Could not fetch robot info from server", "WARNING")
 
-        # Step 5: Send initial telemetry
+        # Step 5: Fetch START_NODE coordinates and set robot position
+        from config import API_CONFIG
+        start_node_id = API_CONFIG.get("START_NODE", 25)
+        start_node = self.telemetry_manager.fetch_node_info(start_node_id)
+
+        if start_node:
+            start_lat = start_node.get('latitude')
+            start_lon = start_node.get('longitude')
+            if start_lat is not None and start_lon is not None:
+                log_message("Setting robot start position from node {}: ({:.6f}, {:.6f})".format(
+                    start_node_id, start_lat, start_lon
+                ))
+                self.robot.set_location(start_lat, start_lon, start_node_id)
+            else:
+                log_message("Warning: Start node has no coordinates, using config defaults", "WARNING")
+        else:
+            log_message("Warning: Could not fetch start node, using config defaults", "WARNING")
+
+        # Step 6: Initialize GPS simulator (after robot position is set)
+        self.gps_simulator = GPSSimulator(self.robot)
+
+        # Step 7: Send initial telemetry
         self.telemetry_manager.send_status_update(force=True)
 
         self.initialized = True

@@ -157,3 +157,46 @@ class TelemetryManager:
             float: Timestamp of last update
         """
         return self.last_update_time
+
+    def fetch_node_info(self, node_id):
+        """
+        Fetch node information from server
+
+        Args:
+            node_id: Node ID to fetch
+
+        Returns:
+            dict: Node information with coordinates or None if failed
+        """
+        if not self.auth_manager.is_authenticated():
+            log_message("Cannot fetch node info: Not authenticated", "WARNING")
+            return None
+
+        try:
+            url = "{}/api/Node/{}".format(self.base_url, node_id)
+
+            headers = self.auth_manager.get_auth_header()
+
+            response = urequests.get(url, headers=headers)
+
+            if response.status_code == 200:
+                data = ujson.loads(response.text)
+                log_message("Node {} info fetched: ({:.6f}, {:.6f})".format(
+                    node_id,
+                    data.get('latitude', 0.0),
+                    data.get('longitude', 0.0)
+                ))
+
+                response.close()
+                return data
+            else:
+                log_message(
+                    "Failed to fetch node info: Status {}".format(response.status_code),
+                    "ERROR"
+                )
+                response.close()
+                return None
+
+        except Exception as e:
+            log_message("Error fetching node info: {}".format(str(e)), "ERROR")
+            return None

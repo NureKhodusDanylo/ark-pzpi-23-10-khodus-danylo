@@ -21,8 +21,9 @@ class GPSSimulator:
         self.update_interval = GPS_CONFIG["UPDATE_INTERVAL"]
         self.max_speed_ms = ROBOT_CHARACTERISTICS["MAX_SPEED_MS"]
 
-        # Initialize robot location
-        self.robot.set_location(self.start_latitude, self.start_longitude)
+        # Initialize robot location only if not already set (from server)
+        if self.robot.current_latitude is None or self.robot.current_longitude is None:
+            self.robot.set_location(self.start_latitude, self.start_longitude)
 
         # Movement state
         self.is_moving = False
