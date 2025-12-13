@@ -4,7 +4,7 @@ import urequests
 import ujson
 import sys
 
-# Add module paths jjgfdjgdfdgjfdjjfdgjdj
+# Add module paths
 sys.path.append('/config')
 sys.path.append('/core')
 sys.path.append('/modules')
@@ -28,6 +28,7 @@ from battery_manager import BatteryManager
 from telemetry import TelemetryManager
 from order_manager import OrderManager
 from hardware_controller import HardwareController
+from display_manager import DisplayManager
 
 
 class RobotControllerFSM:
@@ -55,6 +56,7 @@ class RobotControllerFSM:
         self.telemetry_manager = None
         self.order_manager = None
         self.hardware_controller = None
+        self.display_manager = None
 
         # System state
         self.running = True
@@ -74,19 +76,41 @@ class RobotControllerFSM:
         Initialize all subsystems
         """
         log_message("Initializing robot subsystems...")
+        
+        # Initialize display first to show status
+        self.display_manager = DisplayManager()
+        self.display_manager.display_boot()
+        time.sleep(2)
+        self.display_manager.display_system_check()
+        time.sleep(1)
 
         # Step 1: Connect to WiFi
+        if self.wifi_manager.wifi_ssid:
+            self.display_manager.display_wifi_connecting(self.wifi_manager.wifi_ssid)
+            
         if not self.wifi_manager.connect():
             log_message("Failed to connect to WiFi. Cannot proceed.", "ERROR")
+            self.display_manager.display_wifi_error()
+            time.sleep(3)
             return False
+            
+        # Show connected status
+        ip = self.wifi_manager.wlan.ifconfig()[0] if self.wifi_manager.wlan else "0.0.0.0"
+        self.display_manager.display_wifi_connected(self.wifi_manager.wifi_ssid, ip)
+        time.sleep(2)
 
         # Step 2: Authenticate with server
+        self.display_manager.display_authenticating()
         if not self.auth_manager.login():
             log_message("Failed to authenticate with server. Cannot proceed.", "ERROR")
+            self.display_manager.display_auth_error()
+            time.sleep(3)
             return False
 
         # Set robot ID from authentication
         self.robot.robot_id = self.auth_manager.get_robot_id()
+        self.display_manager.display_auth_success(self.robot.robot_id)
+        time.sleep(2)
 
         # Step 3: Initialize managers (without GPS yet)
         self.battery_manager = BatteryManager(self.robot)
@@ -163,6 +187,7 @@ class RobotControllerFSM:
                 # Check WiFi connection
                 if not self.wifi_manager.reconnect_if_needed():
                     log_message("WiFi connection lost. Retrying...", "WARNING")
+                    self.display_manager.display_wifi_error()
                     time.sleep(5)
                     continue
 
@@ -200,6 +225,7 @@ class RobotControllerFSM:
                 break
             except Exception as e:
                 log_message("Error in main loop: {}".format(str(e)), "ERROR")
+                self.display_manager.display_error("Sys Error: " + str(e))
                 self.fsm.handle_error(str(e))
                 time.sleep(1)
 
@@ -270,6 +296,8 @@ class RobotControllerFSM:
 
     def state_idle(self):
         """IDLE state: Wait and check for orders periodically"""
+        self.display_manager.display_idle(self.robot)
+        
         # Ensure robot status is Idle
         if self.robot.status != "Idle":
             self.robot.set_status("Idle")
@@ -282,6 +310,7 @@ class RobotControllerFSM:
 
     def state_check_orders(self):
         """CHECK_ORDERS state: Fetch orders from server"""
+        self.display_manager.display_checking_orders(self.robot)
         orders = self.order_manager.fetch_assigned_orders()
 
         if orders and len(orders) > 0:
@@ -301,6 +330,7 @@ class RobotControllerFSM:
 
         if order:
             order_id = order.get("orderId")
+            self.display_manager.display_order_assigned(self.robot, order_id)
 
             # Accept order on server
             if self.order_manager.accept_order(order_id):
@@ -318,11 +348,18 @@ class RobotControllerFSM:
 
     def state_motors_on(self):
         """MOTORS_ON state: Start motors and begin flight"""
+        # Show preparing/motors starting
+        order = self.fsm.get_state_data("order")
+        order_id = order.get("orderId") if order else "..."
+        self.display_manager.display_order_assigned(self.robot, order_id)
+        
         self.hardware_controller.start_motors()
         self.fsm.transition_to(DroneState.FLIGHT_TO_PICKUP)
 
     def state_flight_to_pickup(self):
         """FLIGHT_TO_PICKUP state: Flying to pickup location"""
+        self.display_manager.display_flight_to_pickup(self.robot)
+        
         # Check if destination has been set (one-time setup)
         if not self.gps_simulator.is_moving:
             # Set destination
@@ -338,6 +375,8 @@ class RobotControllerFSM:
 
     def state_at_pickup(self):
         """AT_PICKUP state: Arrived at pickup location"""
+        self.display_manager.display_at_pickup(self.robot)
+        
         # Update current node to pickup node
         pickup_node_id = self.order_manager.get_pickup_node_id()
         if pickup_node_id:
@@ -356,6 +395,7 @@ class RobotControllerFSM:
 
     def state_open_compartment_pickup(self):
         """OPEN_COMPARTMENT_PICKUP state: Open compartment for loading"""
+        self.display_manager.display_at_pickup(self.robot) # Still at pickup
         self.hardware_controller.open_compartment()
         self.fsm.transition_to(DroneState.LOADING, {"entry_time": time.time()})
 
@@ -363,17 +403,24 @@ class RobotControllerFSM:
         """LOADING state: Wait for package to be loaded"""
         # Wait 5 seconds for loading (simulated)
         entry_time = self.fsm.get_state_data("entry_time", time.time())
-        if time.time() - entry_time >= 5:
+        elapsed = time.time() - entry_time
+        
+        self.display_manager.display_loading(self.robot, elapsed)
+        
+        if elapsed >= 5:
             log_message("Package loaded")
             self.fsm.transition_to(DroneState.CLOSE_COMPARTMENT_PICKUP)
 
     def state_close_compartment_pickup(self):
         """CLOSE_COMPARTMENT_PICKUP state: Close compartment after loading"""
+        self.display_manager.display_custom_message("Package Loaded!", "Closing hatch...", "Preparing for", "takeoff")
         self.hardware_controller.close_compartment()
         self.fsm.transition_to(DroneState.FLIGHT_TO_DROPOFF)
 
     def state_flight_to_dropoff(self):
         """FLIGHT_TO_DROPOFF state: Flying to dropoff location"""
+        self.display_manager.display_flight_to_dropoff(self.robot)
+        
         # Check if destination has been set (one-time setup)
         if not self.gps_simulator.is_moving:
             # Start motors
@@ -392,6 +439,8 @@ class RobotControllerFSM:
 
     def state_at_dropoff(self):
         """AT_DROPOFF state: Arrived at dropoff location"""
+        self.display_manager.display_at_dropoff(self.robot)
+        
         # Update current node to dropoff node
         dropoff_node_id = self.order_manager.get_dropoff_node_id()
         if dropoff_node_id:
@@ -410,6 +459,7 @@ class RobotControllerFSM:
 
     def state_open_compartment_dropoff(self):
         """OPEN_COMPARTMENT_DROPOFF state: Open compartment for unloading"""
+        self.display_manager.display_at_dropoff(self.robot)
         self.hardware_controller.open_compartment()
         self.fsm.transition_to(DroneState.WAIT_FOR_PICKUP, {"entry_time": time.time()})
 
@@ -417,15 +467,20 @@ class RobotControllerFSM:
         """WAIT_FOR_PICKUP state: Wait for recipient to take package"""
         # Check button press or timeout (10 seconds for simulation)
         entry_time = self.fsm.get_state_data("entry_time", time.time())
+        elapsed = time.time() - entry_time
+        self.display_manager.display_unloading(self.robot, elapsed)
+        
         if self.hardware_controller.is_button_pressed():
             log_message("Package picked up by recipient")
             self.fsm.transition_to(DroneState.PACKAGE_DELIVERED)
-        elif time.time() - entry_time >= 10:
+        elif elapsed >= 10:
             log_message("Package pickup timeout (simulation)", "WARNING")
             self.fsm.transition_to(DroneState.PACKAGE_DELIVERED)
 
     def state_package_delivered(self):
         """PACKAGE_DELIVERED state: Package delivered successfully"""
+        self.display_manager.display_package_delivered(self.robot)
+        
         # Notify server
         self.order_manager.update_order_phase("PACKAGE_DELIVERED")
 
@@ -438,6 +493,7 @@ class RobotControllerFSM:
 
     def state_close_compartment_dropoff(self):
         """CLOSE_COMPARTMENT_DROPOFF state: Close compartment after delivery"""
+        self.display_manager.display_custom_message("Delivery Done!", "Closing hatch...", "Return to base", "initiated")
         self.hardware_controller.close_compartment()
 
         # Always return to charging station after delivery
@@ -446,6 +502,8 @@ class RobotControllerFSM:
 
     def state_flight_to_charging(self):
         """FLIGHT_TO_CHARGING state: Flying to charging station"""
+        self.display_manager.display_flight_to_charging(self.robot)
+        
         # Check if destination has been set (one-time setup)
         if not self.gps_simulator.is_moving:
             # Start motors
@@ -466,6 +524,8 @@ class RobotControllerFSM:
 
     def state_at_charging_station(self):
         """AT_CHARGING_STATION state: Arrived at charging station"""
+        self.display_manager.display_charging(self.robot)
+        
         # Stop motors
         self.hardware_controller.stop_motors()
 
@@ -480,6 +540,8 @@ class RobotControllerFSM:
 
     def state_charging(self):
         """CHARGING state: Charging battery"""
+        self.display_manager.display_charging(self.robot)
+        
         # Stay in charging state even at 100%
         # Robot can still receive orders when Status=Charging and BatteryLevel>=95
 
@@ -499,6 +561,7 @@ class RobotControllerFSM:
         """ERROR state: Handle error condition"""
         error = self.fsm.get_state_data("error", "Unknown error")
         log_message("In ERROR state: {}".format(error), "ERROR")
+        self.display_manager.display_error(str(error))
 
         # Stop hardware
         self.hardware_controller.stop_motors()
@@ -536,6 +599,8 @@ class RobotControllerFSM:
         """
         Handle emergency low battery situation
         """
+        self.display_manager.display_low_battery_warning(self.robot)
+        
         # Stop any active order
         if self.order_manager.has_active_order():
             self.order_manager.cancel_order("Emergency: Low battery")
@@ -559,6 +624,9 @@ class RobotControllerFSM:
         Shutdown robot systems
         """
         log_message("Shutting down robot systems...")
+        
+        if self.display_manager:
+            self.display_manager.shutdown()
 
         # Shutdown hardware
         if self.hardware_controller:

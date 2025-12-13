@@ -27,8 +27,12 @@
     [ "esp:GND.1", "bb1:tn.1", "black", [ "h0" ] ],
     [ "bb1:tn.25", "sevseg1:GND", "green", [ "h145.6", "v-124.9" ] ],
     [ "bb1:tp.25", "sevseg1:VCC", "green", [ "h164.8", "v-124.5" ] ],
-    [ "sevseg1:CLK", "esp:D18", "green", [ "v-96", "h-234.7" ] ],
-    [ "sevseg1:DIO", "esp:D19", "green", [ "v-76.8", "h-211.2", "v-14.2" ] ]
+    [ "sevseg1:CLK", "esp:D18", "green", [ "v-57.6", "h-220.8", "v-14.3" ] ],
+    [ "sevseg1:DIO", "esp:D19", "green", [ "v-76.8", "h-211.2", "v-14.2" ] ],
+    [ "lcd1:GND", "bb1:tn.2", "black", [ "h0" ] ],
+    [ "lcd1:VCC", "bb1:tp.3", "red", [ "h0" ] ],
+    [ "lcd1:SDA", "esp:D21", "green", [ "h19.2", "v211.4" ] ],
+    [ "lcd1:SCL", "esp:D22", "green", [ "h-9.6", "v207.1" ] ]
   ],
   "dependencies": {}
 }
