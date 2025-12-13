@@ -3,68 +3,32 @@
   "author": "RobDelivery IoT Team",
   "editor": "wokwi",
   "parts": [
+    { "type": "wokwi-breadboard-half", "id": "bb1", "top": 285, "left": -93.2, "attrs": {} },
+    { "type": "wokwi-esp32-devkit-v1", "id": "esp", "top": 0, "left": 0, "attrs": {} },
     {
-      "type": "wokwi-esp32-devkit-v1",
-      "id": "esp",
-      "top": 0,
-      "left": 0,
-      "attrs": {}
+      "type": "wokwi-lcd2004",
+      "id": "lcd1",
+      "top": -233.6,
+      "left": 120.8,
+      "attrs": { "pins": "i2c" }
     },
     {
-      "type": "wokwi-led",
-      "id": "led1",
-      "top": -28.8,
-      "left": 134.2,
-      "attrs": { "color": "green" }
-    },
-    {
-      "type": "wokwi-led",
-      "id": "led2",
-      "top": -28.8,
-      "left": 153.4,
+      "type": "wokwi-tm1637-7segment",
+      "id": "sevseg1",
+      "top": 124.76,
+      "left": 160.63,
       "attrs": { "color": "red" }
-    },
-    {
-      "type": "wokwi-led",
-      "id": "led3",
-      "top": -28.8,
-      "left": 172.6,
-      "attrs": { "color": "blue" }
-    },
-    {
-      "type": "wokwi-resistor",
-      "id": "r1",
-      "top": 19.2,
-      "left": 134.4,
-      "attrs": { "value": "220" }
-    },
-    {
-      "type": "wokwi-resistor",
-      "id": "r2",
-      "top": 19.2,
-      "left": 153.6,
-      "attrs": { "value": "220" }
-    },
-    {
-      "type": "wokwi-resistor",
-      "id": "r3",
-      "top": 19.2,
-      "left": 172.8,
-      "attrs": { "value": "220" }
     }
   ],
   "connections": [
     [ "esp:TX0", "$serialMonitor:RX", "", [] ],
     [ "esp:RX0", "$serialMonitor:TX", "", [] ],
-    [ "led1:A", "r1:1", "green", [] ],
-    [ "r1:2", "esp:D2", "green", [] ],
-    [ "led1:C", "esp:GND.1", "black", [] ],
-    [ "led2:A", "r2:1", "red", [] ],
-    [ "r2:2", "esp:D4", "red", [] ],
-    [ "led2:C", "esp:GND.1", "black", [] ],
-    [ "led3:A", "r3:1", "blue", [] ],
-    [ "r3:2", "esp:D5", "blue", [] ],
-    [ "led3:C", "esp:GND.1", "black", [] ]
+    [ "esp:3V3", "bb1:tp.1", "green", [ "v71.9", "h-160.5" ] ],
+    [ "esp:GND.1", "bb1:tn.1", "black", [ "h0" ] ],
+    [ "bb1:tn.25", "sevseg1:GND", "green", [ "h145.6", "v-124.9" ] ],
+    [ "bb1:tp.25", "sevseg1:VCC", "green", [ "h164.8", "v-124.5" ] ],
+    [ "sevseg1:CLK", "esp:D18", "green", [ "v-96", "h-234.7" ] ],
+    [ "sevseg1:DIO", "esp:D19", "green", [ "v-76.8", "h-211.2", "v-14.2" ] ]
   ],
   "dependencies": {}
 }

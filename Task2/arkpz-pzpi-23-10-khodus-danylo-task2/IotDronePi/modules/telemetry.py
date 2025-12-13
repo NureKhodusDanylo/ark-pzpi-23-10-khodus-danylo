@@ -2,6 +2,9 @@ import urequests
 import ujson
 import time
 import sys
+from machine import Pin
+import tm1637
+from time import sleep
 
 sys.path.append('/config')
 sys.path.append('/utils')
@@ -22,6 +25,12 @@ class TelemetryManager:
         self.me_endpoint = API_CONFIG["ROBOT_ME_ENDPOINT"]
         self.update_interval = TELEMETRY_CONFIG["UPDATE_INTERVAL"]
         self.last_update_time = 0
+        try:
+            self.tm = tm1637.TM1637(clk=Pin(18), dio=Pin(19))
+            self.tm.brightness(7)
+        except Exception as e:
+            log_message("Display init failed: " + str(e), "ERROR")
+            self.tm = None
 
     def send_status_update(self, force=False):
         """
@@ -74,6 +83,8 @@ class TelemetryManager:
                     ),
                     "DEBUG"
                 )
+
+            self.tm.number(int(self.robot.battery_level))
 
             response = urequests.post(
                 url,
