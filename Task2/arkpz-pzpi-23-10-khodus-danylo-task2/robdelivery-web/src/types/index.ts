@@ -118,3 +118,36 @@ export interface CreateOrderRequest {
 export interface UpdateOrderStatusRequest {
   status: 'Pending' | 'Processing' | 'EnRoute' | 'Delivered' | 'Cancelled';
 }
+
+export interface RobotMapPosition {
+  id: number;
+  name: string;
+  model: string;
+  type: 'Ground' | 'Aerial';
+  typeName: string;
+  status: 'Idle' | 'Delivering' | 'Charging' | 'Maintenance';
+  statusName: string;
+  batteryLevel: number;
+  latitude?: number;
+  longitude?: number;
+  currentNodeId?: number;
+  currentNodeName?: string;
+  targetNodeId?: number;
+  targetNodeName?: string;
+  activeOrdersCount: number;
+}
+
+export interface NodeMapPosition {
+  id: number;
+  name: string;
+  latitude: number;
+  longitude: number;
+  type: 'UserNode' | 'ChargingStation' | 'Depot';
+  typeName: string;
+  robotsAtNode?: number;
+}
+
+export interface MapData {
+  robots: RobotMapPosition[];
+  nodes: NodeMapPosition[];
+}

@@ -13,6 +13,7 @@ import CreateOrderPage from './pages/CreateOrderPage';
 import RobotsPage from './pages/RobotsPage';
 import AdminPage from './pages/AdminPage';
 import ProfilePage from './pages/ProfilePage';
+import MapPage from './pages/MapPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -83,6 +84,15 @@ function App() {
             element={
               <ProtectedRoute>
                 <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/map"
+            element={
+              <ProtectedRoute>
+                <MapPage />
               </ProtectedRoute>
             }
           />

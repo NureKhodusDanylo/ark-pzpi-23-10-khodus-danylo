@@ -1,7 +1,10 @@
 using Application.Abstractions.Interfaces;
 using Application.DTOs.RobotDTOs;
+using Application.DTOs.MapDTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
+using RobDeliveryAPI.Hubs;
 using System.Security.Claims;
 
 namespace RobDeliveryAPI.Controllers
@@ -12,10 +15,12 @@ namespace RobDeliveryAPI.Controllers
     public class RobotController : ControllerBase
     {
         private readonly IRobotService _robotService;
+        private readonly IHubContext<MapHub> _mapHubContext;
 
-        public RobotController(IRobotService robotService)
+        public RobotController(IRobotService robotService, IHubContext<MapHub> mapHubContext)
         {
             _robotService = robotService;
+            _mapHubContext = mapHubContext;
         }
 
         [HttpPost]
@@ -138,6 +143,27 @@ namespace RobDeliveryAPI.Controllers
                 {
                     return NotFound(new { error = "Robot not found" });
                 }
+
+                // Broadcast robot position update to all connected clients via SignalR
+                var robotPositionUpdate = new RobotMapPositionDTO
+                {
+                    Id = robot.Id,
+                    Name = robot.Name,
+                    Model = robot.Model,
+                    Type = (RobotType)Enum.Parse(typeof(RobotType), robot.TypeName),
+                    TypeName = robot.TypeName,
+                    Status = (RobotStatus)Enum.Parse(typeof(RobotStatus), robot.StatusName),
+                    StatusName = robot.StatusName,
+                    BatteryLevel = robot.BatteryLevel,
+                    Latitude = statusUpdate.CurrentLatitude,
+                    Longitude = statusUpdate.CurrentLongitude,
+                    CurrentNodeId = robot.CurrentNodeId,
+                    CurrentNodeName = robot.CurrentNodeName,
+                    TargetNodeId = statusUpdate.TargetNodeId,
+                    ActiveOrdersCount = robot.ActiveOrdersCount
+                };
+
+                await _mapHubContext.Clients.All.SendAsync("ReceiveRobotUpdate", robotPositionUpdate);
 
                 return Ok(new
                 {

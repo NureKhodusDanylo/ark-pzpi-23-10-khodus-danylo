@@ -11,6 +11,7 @@ import type {
   Node,
   AdminStats,
   RobotEfficiency,
+  MapData,
 } from '../types';
 
 const API_BASE_URL = 'http://35.192.164.131:5102/api';
@@ -179,6 +180,12 @@ export const adminAPI = {
 
   createBackup: () =>
     api.post('/Admin/backup'),
+};
+
+// Map APIs
+export const mapAPI = {
+  getMapData: () =>
+    api.get<MapData>('/Map/data'),
 };
 
 export default api;

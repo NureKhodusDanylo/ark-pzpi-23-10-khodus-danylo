@@ -47,6 +47,7 @@ namespace RobDeliveryAPI
             builder.Services.AddScoped<IRobotService, RobotService>();
             builder.Services.AddScoped<IAdminService, AdminService>();
             builder.Services.AddScoped<IFileService, FileService>();
+            builder.Services.AddScoped<IMapService, MapService>();
 
             // Utilities
             builder.Services.AddScoped<IPasswordHasher, Sha256PasswordHasher>();
@@ -64,6 +65,9 @@ namespace RobDeliveryAPI
 
             // Add HttpContextAccessor for accessing HTTP context in services
             builder.Services.AddHttpContextAccessor();
+
+            // Add SignalR
+            builder.Services.AddSignalR();
 
             // Configure JWT Authentication
             var jwtKey = config.Jwt.Key;
@@ -88,6 +92,21 @@ namespace RobDeliveryAPI
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
                     ClockSkew = TimeSpan.Zero
                 };
+
+                // Allow SignalR to authenticate via query string
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        var accessToken = context.Request.Query["access_token"];
+                        var path = context.HttpContext.Request.Path;
+                        if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                        {
+                            context.Token = accessToken;
+                        }
+                        return Task.CompletedTask;
+                    }
+                };
             });
 
             builder.Services.AddCors(options =>
@@ -95,9 +114,10 @@ namespace RobDeliveryAPI
                 options.AddPolicy("AllowAllOrigins",
                     builder =>
                     {
-                        builder.AllowAnyOrigin()   // Разрешает запросы с любого источника
-                               .AllowAnyMethod()   // Разрешает любые HTTP-методы (GET, POST, PUT, DELETE и т.д.)
-                               .AllowAnyHeader();  // Разрешает любые HTTP-заголовки
+                        builder.SetIsOriginAllowed(_ => true)  // Разрешает запросы с любого источника
+                               .AllowAnyMethod()                // Разрешает любые HTTP-методы
+                               .AllowAnyHeader()                // Разрешает любые HTTP-заголовки
+                               .AllowCredentials();             // Разрешает передачу credentials для SignalR
                     });
             });
 
@@ -194,6 +214,7 @@ namespace RobDeliveryAPI
             app.UseAuthorization();
 
             app.MapControllers();
+            app.MapHub<RobDeliveryAPI.Hubs.MapHub>("/hubs/map");
 
             app.Run();
         }

@@ -11,6 +11,7 @@ import {
   LogOut,
   User,
   Shield,
+  Map,
 } from 'lucide-react';
 import './Layout.css';
 
@@ -33,6 +34,7 @@ const Layout = ({ children }: LayoutProps) => {
     { path: '/orders', icon: <Package size={20} />, label: 'Orders' },
     { path: '/orders/create', icon: <PlusCircle size={20} />, label: 'New Order' },
     { path: '/robots', icon: <Bot size={20} />, label: 'Robots' },
+    { path: '/map', icon: <Map size={20} />, label: 'Live Map' },
     { path: '/profile', icon: <User size={20} />, label: 'Profile' },
   ];
 
