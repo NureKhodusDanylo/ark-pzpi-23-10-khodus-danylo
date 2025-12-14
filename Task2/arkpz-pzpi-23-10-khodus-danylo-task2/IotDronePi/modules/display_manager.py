@@ -445,8 +445,6 @@ class DisplayManager:
         self.write_line(box_icon + " LOADING PACKAGE", 0)
         self.write_line("Hatch OPEN", 1)
         self.write_line("Wait for sender", 2, center=True)
-        # Timer
-        self.write_line("Time: {}s / 5s".format(int(elapsed_time)), 3)
 
     def display_at_dropoff(self, robot):
         """At dropoff location"""

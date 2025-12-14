@@ -1,8 +1,10 @@
 import time
-import network
-import urequests
-import ujson
 import sys
+import gc
+from machine import Pin
+
+# Run garbage collection before any imports
+gc.collect()
 
 # Add module paths
 sys.path.append('/config')
@@ -30,6 +32,13 @@ from order_manager import OrderManager
 from hardware_controller import HardwareController
 from display_manager import DisplayManager
 
+
+try:
+    import os
+    os.listdir()
+except:
+    print("Filesystem check skipped...")
+    
 
 class RobotControllerFSM:
     """
@@ -71,35 +80,49 @@ class RobotControllerFSM:
         self.home_charging_lon = None
         self.home_charging_node_id = None
 
+        self.button = None 
+
     def initialize(self):
         """
         Initialize all subsystems
         """
         log_message("Initializing robot subsystems...")
-        
-        # Initialize display first to show status
-        self.display_manager = DisplayManager()
-        self.display_manager.display_boot()
-        time.sleep(2)
-        self.display_manager.display_system_check()
-        time.sleep(1)
 
-        # Step 1: Connect to WiFi
-        if self.wifi_manager.wifi_ssid:
-            self.display_manager.display_wifi_connecting(self.wifi_manager.wifi_ssid)
-            
+        try:
+            from machine import Pin
+            self.button = Pin(12, Pin.IN, Pin.PULL_UP)
+            log_message("Button initialized on Pin 12")
+        except Exception as e:
+            log_message(f"Failed to init button: {e}", "WARNING")
+
+        # Step 1: Connect to WiFi FIRST (before display to save memory)
+        log_message("Connecting to WiFi: {}".format(self.wifi_manager.wifi_ssid))
+        gc.collect()  # Free memory before WiFi init
+
         if not self.wifi_manager.connect():
             log_message("Failed to connect to WiFi. Cannot proceed.", "ERROR")
-            self.display_manager.display_wifi_error()
+            # Try to show error on display if it gets initialized
+            try:
+                if self.display_manager is None:
+                    self.display_manager = DisplayManager()
+                self.display_manager.display_wifi_error()
+            except:
+                pass
             time.sleep(3)
             return False
-            
-        # Show connected status
+
+        # Step 2: Initialize display AFTER WiFi is connected
+        log_message("Initializing display...")
+        self.display_manager = DisplayManager()
+        self.display_manager.display_boot()
+        time.sleep(1)
+
+        # Show WiFi connected status
         ip = self.wifi_manager.wlan.ifconfig()[0] if self.wifi_manager.wlan else "0.0.0.0"
         self.display_manager.display_wifi_connected(self.wifi_manager.wifi_ssid, ip)
         time.sleep(2)
 
-        # Step 2: Authenticate with server
+        # Step 3: Authenticate with server
         self.display_manager.display_authenticating()
         if not self.auth_manager.login():
             log_message("Failed to authenticate with server. Cannot proceed.", "ERROR")
@@ -112,20 +135,20 @@ class RobotControllerFSM:
         self.display_manager.display_auth_success(self.robot.robot_id)
         time.sleep(2)
 
-        # Step 3: Initialize managers (without GPS yet)
+        # Step 4: Initialize managers (without GPS yet)
         self.battery_manager = BatteryManager(self.robot)
         self.telemetry_manager = TelemetryManager(self.robot, self.auth_manager)
         self.order_manager = OrderManager(self.robot, self.auth_manager)
         self.hardware_controller = HardwareController()
 
-        # Step 4: Fetch robot information from server
+        # Step 5: Fetch robot information from server
         robot_info = self.telemetry_manager.fetch_robot_info()
         if robot_info:
             log_message("Robot initialized: {}".format(self.robot))
         else:
             log_message("Warning: Could not fetch robot info from server", "WARNING")
 
-        # Step 5: Fetch START_NODE coordinates and set robot position
+        # Step 6: Fetch START_NODE coordinates and set robot position
         from config import API_CONFIG
         start_node_id = API_CONFIG.get("START_NODE", 25)
         start_node = self.telemetry_manager.fetch_node_info(start_node_id)
@@ -157,17 +180,17 @@ class RobotControllerFSM:
         else:
             log_message("Warning: Could not fetch start node, using config defaults", "WARNING")
 
-        # Step 6: Initialize GPS simulator (after robot position is set)
+        # Step 7: Initialize GPS simulator (after robot position is set)
         self.gps_simulator = GPSSimulator(self.robot)
 
-        # Step 7: If starting at charging station, begin charging
+        # Step 8: If starting at charging station, begin charging
         if start_node_is_charging_station:
             log_message("Initializing at charging station - starting charge cycle")
             self.battery_manager.start_charging()
             self.robot.set_status("Charging")
             self.fsm.transition_to(DroneState.CHARGING)
 
-        # Step 8: Send initial telemetry
+        # Step 9: Send initial telemetry
         self.telemetry_manager.send_status_update(force=True)
 
         self.initialized = True
@@ -400,15 +423,13 @@ class RobotControllerFSM:
         self.fsm.transition_to(DroneState.LOADING, {"entry_time": time.time()})
 
     def state_loading(self):
-        """LOADING state: Wait for package to be loaded"""
-        # Wait 5 seconds for loading (simulated)
-        entry_time = self.fsm.get_state_data("entry_time", time.time())
-        elapsed = time.time() - entry_time
+        self.display_manager.display_loading(self.robot, 0)
         
-        self.display_manager.display_loading(self.robot, elapsed)
+        if self.button.value() == 0:
+            log_message("Button pressed - Package loaded")
+ 
+            time.sleep(0.2) 
         
-        if elapsed >= 5:
-            log_message("Package loaded")
             self.fsm.transition_to(DroneState.CLOSE_COMPARTMENT_PICKUP)
 
     def state_close_compartment_pickup(self):
@@ -464,15 +485,17 @@ class RobotControllerFSM:
         self.fsm.transition_to(DroneState.WAIT_FOR_PICKUP, {"entry_time": time.time()})
 
     def state_wait_for_pickup(self):
-        """WAIT_FOR_PICKUP state: Wait for recipient to take package"""
-        # Check button press or timeout (10 seconds for simulation)
         entry_time = self.fsm.get_state_data("entry_time", time.time())
         elapsed = time.time() - entry_time
         self.display_manager.display_unloading(self.robot, elapsed)
-        
-        if self.hardware_controller.is_button_pressed():
+    
+        if self.button.value() == 0:
             log_message("Package picked up by recipient")
+            
+            time.sleep(0.2)  
+            
             self.fsm.transition_to(DroneState.PACKAGE_DELIVERED)
+    
         elif elapsed >= 10:
             log_message("Package pickup timeout (simulation)", "WARNING")
             self.fsm.transition_to(DroneState.PACKAGE_DELIVERED)
@@ -647,6 +670,11 @@ def main():
     """
     Main entry point
     """
+    # Give system time to stabilize after boot
+    print("System initializing...")
+    time.sleep(2)
+    gc.collect()
+
     controller = RobotControllerFSM()
 
     try:
