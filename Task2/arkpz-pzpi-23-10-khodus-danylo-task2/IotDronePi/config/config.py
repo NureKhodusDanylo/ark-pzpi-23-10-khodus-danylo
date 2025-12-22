@@ -10,7 +10,7 @@ WIFI_CONFIG = {
 
 # API Configuration
 API_CONFIG = {
-    "BASE_URL": "http://35.192.164.131:5102",
+    "BASE_URL": "http://136.112.182.193:5102",
     "AUTH_ENDPOINT": "/api/Auth/robot/login",
     "ROBOT_STATUS_ENDPOINT": "/api/Robot/status",
     "ROBOT_ME_ENDPOINT": "/api/Robot/me",

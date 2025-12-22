@@ -14,7 +14,7 @@ import type {
   MapData,
 } from '../types';
 
-const API_BASE_URL = 'http://35.239.41.37:5102/api';
+const API_BASE_URL = 'http://136.112.182.193:5102/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
