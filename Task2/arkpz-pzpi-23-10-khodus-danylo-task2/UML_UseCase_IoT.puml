@@ -1,0 +1,127 @@
+@startuml IoT_UseCase_Diagram
+!theme plain
+skinparam actorStyle awesome
+
+title Діаграма прецедентів IoT клієнта (Робот-доставник)
+
+left to right direction
+
+' Актори
+actor "IoT Пристрій\n(Робот)" as Robot
+actor "Сервер" as Server
+actor "Користувач\n(Отримувач)" as Recipient
+
+' Межа системи
+rectangle "IoT Клієнт - Система управління роботом" {
+
+    ' Група: Налаштування та ініціалізація
+    package "Налаштування" {
+        usecase UC1 as "Підключення до WiFi"
+        usecase UC2 as "Автентифікація на сервері\n(JWT токен)"
+        usecase UC3 as "Ініціалізація апаратних\nкомпонентів (GPIO)"
+        usecase UC4 as "Налаштування енергоспоживання"
+    }
+
+    ' Група: Управління замовленнями
+    package "Управління замовленнями" {
+        usecase UC5 as "Отримання списку\nпризначених замовлень"
+        usecase UC6 as "Прийняття замовлення"
+        usecase UC7 as "Оновлення фази виконання\nзамовлення"
+    }
+
+    ' Група: Навігація та переміщення
+    package "Навігація" {
+        usecase UC8 as "Розрахунок маршруту\nдо точки призначення"
+        usecase UC9 as "Автономне переміщення\nза маршрутом"
+        usecase UC10 as "Відправка телеметрії\n(координати, швидкість)"
+    }
+
+    ' Група: Управління вантажним відсіком
+    package "Управління відсіком" {
+        usecase UC11 as "Відкриття відсіку\nдля завантаження"
+        usecase UC12 as "Закриття відсіку"
+        usecase UC13 as "Очікування підтвердження\nотримання посилки"
+    }
+
+    ' Група: Управління батареєю
+    package "Управління батареєю" {
+        usecase UC14 as "Моніторинг рівня батареї"
+        usecase UC15 as "Навігація до зарядної станції"
+        usecase UC16 as "Процес зарядки батареї"
+    }
+
+    ' Група: Обробка помилок
+    package "Обробка помилок" {
+        usecase UC17 as "Обробка аварійних ситуацій"
+        usecase UC18 as "Повернення до безпечного стану"
+    }
+}
+
+' Зв'язки актора "IoT Пристрій"
+Robot --> UC1
+Robot --> UC2
+Robot --> UC3
+Robot --> UC4
+Robot --> UC5
+Robot --> UC8
+Robot --> UC9
+Robot --> UC10
+Robot --> UC11
+Robot --> UC12
+Robot --> UC13
+Robot --> UC14
+Robot --> UC15
+Robot --> UC16
+Robot --> UC17
+
+' Зв'язки актора "Сервер"
+Server <-- UC2 : <<communicates>>
+Server <-- UC5 : <<communicates>>
+Server <-- UC6 : <<communicates>>
+Server <-- UC7 : <<communicates>>
+Server <-- UC10 : <<communicates>>
+
+' Зв'язки актора "Отримувач"
+Recipient --> UC13
+
+' Include зв'язки
+UC5 .> UC2 : <<include>>
+UC6 .> UC2 : <<include>>
+UC7 .> UC2 : <<include>>
+UC10 .> UC2 : <<include>>
+
+UC9 .> UC8 : <<include>>
+UC9 .> UC10 : <<include>>
+UC9 .> UC14 : <<include>>
+
+UC6 .> UC5 : <<include>>
+UC7 .> UC6 : <<include>>
+
+UC16 .> UC15 : <<include>>
+
+' Extend зв'язки
+UC17 .> UC9 : <<extend>>
+UC17 .> UC14 : <<extend>>
+UC18 .> UC17 : <<include>>
+
+UC15 .> UC14 : <<extend>>\n[Рівень < 20%]
+
+note right of UC2
+  Використовується JWT токен
+  з роллю "Iot" для автентифікації
+  всіх запитів до API
+end note
+
+note right of UC9
+  Робот автономно розраховує маршрут,
+  враховуючи перешкоди та зарядні станції.
+  Сервер надає лише координати точок.
+end note
+
+note bottom of UC14
+  Критичний рівень: 20%
+  Рекомендований для зарядки: 50%
+  Повна зарядка: 95%
+end note
+
+@enduml
